@@ -62,6 +62,8 @@ Visit http://localhost:3000
 
 ## 📖 Documentation
 
+- **[macOS Quick Start](./QUICKSTART_MAC.md)** - ⚡ 5-minute setup for Mac users
+- **[macOS Setup Guide](./MACOS_SETUP.md)** - Complete macOS installation guide
 - **[Setup Guide](./SETUP.md)** - Detailed setup instructions and troubleshooting
 - **[Deployment Guide](./DEPLOYMENT.md)** - Deploy to Vercel or other platforms
 
