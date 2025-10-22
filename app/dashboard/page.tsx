@@ -65,6 +65,7 @@ export default function Dashboard() {
       setInitialLoad(false);
       syncActivities();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, initialLoad]);
 
   const fetchActivities = async () => {

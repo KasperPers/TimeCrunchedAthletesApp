@@ -28,7 +28,13 @@ export async function GET() {
       take: 50, // Limit to 50 most recent
     });
 
-    return NextResponse.json({ activities });
+    // Convert BigInt to string for JSON serialization
+    const serializedActivities = activities.map((activity) => ({
+      ...activity,
+      stravaId: activity.stravaId.toString(),
+    }));
+
+    return NextResponse.json({ activities: serializedActivities });
   } catch (error) {
     console.error('Error fetching activities:', error);
     return NextResponse.json(
