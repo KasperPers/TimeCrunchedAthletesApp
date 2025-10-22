@@ -59,7 +59,7 @@ model User {
 
 model Activity {
   id                  String   @id @default(cuid())
-  stravaId            Int      @unique
+  stravaId            BigInt   @unique
   userId              String
   name                String
   type                String   // Run, Ride, VirtualRide, etc.
