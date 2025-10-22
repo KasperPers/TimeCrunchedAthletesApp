@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       numSessions,
       sessionDurations
     );
-    const recommendations = recommendationEngine.generateRecommendations();
+    const recommendations = await recommendationEngine.generateRecommendations();
 
     // Save weekly plan and recommendations to database
     const weekStart = new Date();

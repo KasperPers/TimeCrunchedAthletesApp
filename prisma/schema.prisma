@@ -136,6 +136,26 @@ model Recommendation {
   @@unique([weeklyPlanId, sessionNumber])
 }
 
+model ZwiftWorkout {
+  id          String   @id @default(cuid())
+  name        String
+  url         String   @unique
+  duration    Int      // in minutes
+  type        String   // Recovery, Endurance, Tempo, Threshold, VO2Max, Mixed
+  tss         Float?   // Training Stress Score
+  description String?
+
+  // Additional metadata from whatsonzwift
+  difficulty  String?  // Beginner, Intermediate, Advanced
+  author      String?  // Workout author/plan
+  tags        String?  // JSON array of tags
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type, duration])
+}
+
 model VerificationToken {
   identifier String
   token      String   @unique

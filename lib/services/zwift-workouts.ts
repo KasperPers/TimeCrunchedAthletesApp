@@ -1,20 +1,22 @@
 import { ZwiftWorkout } from '../types';
+import { prisma } from '../prisma';
 
 /**
- * Curated Zwift-style workout library
+ * Zwift Workout Service
  *
- * These are example workouts modeled after popular Zwift training plans.
- * To find similar workouts in Zwift:
- * 1. Open Zwift app
- * 2. Go to Training
- * 3. Search by workout type (Recovery, Endurance, Tempo, Threshold, VO2Max)
- * 4. Filter by duration
- * 5. Look for workouts with similar TSS values
+ * This service fetches real Zwift workouts from the database.
+ * Workouts are imported from whatsonzwift.com using the crawler script.
+ *
+ * To update the workout library:
+ * 1. Run: npx ts-node scripts/crawl-zwift-workouts.ts
+ * 2. Import: POST /api/workouts/import
+ * 3. Verify: GET /api/workouts/import
  *
  * Or use whatsonzwift.com to browse the full Zwift workout library.
  */
 
-export const ZWIFT_WORKOUTS: ZwiftWorkout[] = [
+// Fallback workouts if database is empty
+export const FALLBACK_WORKOUTS: ZwiftWorkout[] = [
   // Recovery Workouts
   {
     name: 'Easy Spin',
@@ -190,16 +192,76 @@ export const ZWIFT_WORKOUTS: ZwiftWorkout[] = [
 
 export class ZwiftWorkoutService {
   /**
-   * Get workouts filtered by criteria
+   * Get workouts from database with fallback to hardcoded workouts
    */
-  static getWorkouts(filters?: {
+  static async getWorkouts(filters?: {
+    type?: string;
+    minDuration?: number;
+    maxDuration?: number;
+    minTSS?: number;
+    maxTSS?: number;
+  }): Promise<ZwiftWorkout[]> {
+    try {
+      // Build database query
+      const where: any = {};
+
+      if (filters?.type) {
+        where.type = {
+          equals: filters.type,
+          mode: 'insensitive',
+        };
+      }
+
+      if (filters?.minDuration || filters?.maxDuration) {
+        where.duration = {};
+        if (filters.minDuration) where.duration.gte = filters.minDuration;
+        if (filters.maxDuration) where.duration.lte = filters.maxDuration;
+      }
+
+      if (filters?.minTSS || filters?.maxTSS) {
+        where.tss = {};
+        if (filters.minTSS) where.tss.gte = filters.minTSS;
+        if (filters.maxTSS) where.tss.lte = filters.maxTSS;
+      }
+
+      // Fetch from database
+      const dbWorkouts = await prisma.zwiftWorkout.findMany({
+        where,
+        orderBy: [{ type: 'asc' }, { duration: 'asc' }],
+      });
+
+      // Convert to ZwiftWorkout format
+      if (dbWorkouts.length > 0) {
+        return dbWorkouts.map((w) => ({
+          name: w.name,
+          url: w.url,
+          duration: w.duration,
+          type: w.type,
+          tss: w.tss || 0,
+          description: w.description || '',
+        }));
+      }
+
+      // Fallback to hardcoded workouts if database is empty
+      console.warn('No workouts in database, using fallback workouts');
+      return this.getFallbackWorkouts(filters);
+    } catch (error) {
+      console.error('Error fetching workouts from database:', error);
+      return this.getFallbackWorkouts(filters);
+    }
+  }
+
+  /**
+   * Get fallback workouts when database is empty
+   */
+  private static getFallbackWorkouts(filters?: {
     type?: string;
     minDuration?: number;
     maxDuration?: number;
     minTSS?: number;
     maxTSS?: number;
   }): ZwiftWorkout[] {
-    let workouts = [...ZWIFT_WORKOUTS];
+    let workouts = [...FALLBACK_WORKOUTS];
 
     if (filters) {
       if (filters.type) {
@@ -231,16 +293,16 @@ export class ZwiftWorkoutService {
   /**
    * Find best workout match based on requirements
    */
-  static findBestMatch(
+  static async findBestMatch(
     targetType: string,
     targetDuration: number,
     targetTSS: number
-  ): ZwiftWorkout | null {
+  ): Promise<ZwiftWorkout | null> {
     const durationTolerance = 15; // minutes
     const tssTolerance = 20;
 
     // Filter by type and approximate duration
-    let candidates = this.getWorkouts({
+    let candidates = await this.getWorkouts({
       type: targetType,
       minDuration: targetDuration - durationTolerance,
       maxDuration: targetDuration + durationTolerance,
@@ -249,7 +311,8 @@ export class ZwiftWorkoutService {
     // If no exact type match, try related types
     if (candidates.length === 0) {
       const relatedTypes = this.getRelatedTypes(targetType);
-      candidates = ZWIFT_WORKOUTS.filter(
+      const allWorkouts = await this.getWorkouts();
+      candidates = allWorkouts.filter(
         (w) =>
           relatedTypes.includes(w.type) &&
           Math.abs(w.duration - targetDuration) <= durationTolerance
@@ -292,11 +355,11 @@ export class ZwiftWorkoutService {
   /**
    * Get workout recommendations for a weekly plan
    */
-  static getWeeklyPlan(
+  static async getWeeklyPlan(
     numSessions: number,
     sessionDurations: number[],
     targetTypes: string[]
-  ): ZwiftWorkout[] {
+  ): Promise<ZwiftWorkout[]> {
     const recommendations: ZwiftWorkout[] = [];
 
     for (let i = 0; i < numSessions; i++) {
@@ -304,7 +367,7 @@ export class ZwiftWorkoutService {
       const type = targetTypes[i] || 'Endurance';
       const targetTSS = (duration / 60) * 70; // Rough estimate
 
-      const workout = this.findBestMatch(type, duration, targetTSS);
+      const workout = await this.findBestMatch(type, duration, targetTSS);
       if (workout) {
         recommendations.push(workout);
       }
