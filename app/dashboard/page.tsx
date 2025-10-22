@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { TrainingMetrics } from '@/lib/types';
+import { RecentActivities } from '@/components/RecentActivities';
 
 interface WorkoutRecommendation {
   sessionNumber: number;
@@ -18,6 +19,21 @@ interface WorkoutRecommendation {
   reason: string;
 }
 
+interface Activity {
+  id: string;
+  stravaId: string;
+  name: string;
+  type: string;
+  startDate: string;
+  distance: number;
+  movingTime: number;
+  totalElevationGain: number;
+  averageWatts?: number;
+  averageHeartrate?: number;
+  tss?: number;
+  workoutType?: string;
+}
+
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -26,8 +42,10 @@ export default function Dashboard() {
   const [sessionDurations, setSessionDurations] = useState<number[]>([60, 60, 60]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [metrics, setMetrics] = useState<TrainingMetrics | null>(null);
   const [recommendations, setRecommendations] = useState<WorkoutRecommendation[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,6 +58,26 @@ export default function Dashboard() {
     // Update session durations array when number of sessions changes
     setSessionDurations(Array(numSessions).fill(60));
   }, [numSessions]);
+
+  // Auto-sync on first load
+  useEffect(() => {
+    if (status === 'authenticated' && initialLoad) {
+      setInitialLoad(false);
+      syncActivities();
+    }
+  }, [status, initialLoad]);
+
+  const fetchActivities = async () => {
+    try {
+      const response = await fetch('/api/activities');
+      if (response.ok) {
+        const data = await response.json();
+        setActivities(data.activities);
+      }
+    } catch (err) {
+      console.error('Error fetching activities:', err);
+    }
+  };
 
   const syncActivities = async () => {
     setSyncing(true);
@@ -56,6 +94,9 @@ export default function Dashboard() {
 
       const data = await response.json();
       setMetrics(data.metrics);
+
+      // Fetch updated activities list
+      await fetchActivities();
     } catch (err) {
       setError('Failed to sync activities. Please try again.');
       console.error(err);
@@ -134,17 +175,46 @@ export default function Dashboard() {
             <div>
               <h2 className="text-xl font-semibold mb-2">Strava Activities</h2>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Sync your recent activities to get personalized recommendations
+                {syncing
+                  ? 'Syncing your activities...'
+                  : 'Your activities sync automatically. Click to refresh.'}
               </p>
             </div>
             <button
               onClick={syncActivities}
               disabled={syncing}
-              className="bg-strava hover:bg-orange-600 text-white font-medium py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-strava hover:bg-orange-600 text-white font-medium py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {syncing ? 'Syncing...' : 'Sync Activities'}
+              {syncing && (
+                <svg
+                  className="animate-spin h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              )}
+              {syncing ? 'Syncing...' : 'Refresh Activities'}
             </button>
           </div>
+        </div>
+
+        {/* Recent Activities */}
+        <div className="mb-6">
+          <RecentActivities activities={activities} />
         </div>
 
         {/* Training Metrics */}
