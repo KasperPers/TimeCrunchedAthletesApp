@@ -6,6 +6,10 @@ import { useEffect, useState } from 'react';
 import { TrainingMetrics } from '@/lib/types';
 import { RecentActivities } from '@/components/RecentActivities';
 import { WeeklyPlanCard } from '@/components/WeeklyPlanCard';
+import { WeeklyTSSChart } from '@/components/WeeklyTSSChart';
+import { ProgressTracking } from '@/components/ProgressTracking';
+import { PersonalRecords } from '@/components/PersonalRecords';
+import { CalendarView } from '@/components/CalendarView';
 import { getNextWeekStarts } from '@/lib/utils/weeks';
 
 interface WorkoutRecommendation {
@@ -271,6 +275,28 @@ export default function Dashboard() {
         <div className="mb-6">
           <RecentActivities activities={activities} />
         </div>
+
+        {/* Progress Tracking and Weekly TSS Chart */}
+        {activities.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <ProgressTracking activities={activities} />
+            <WeeklyTSSChart activities={activities} />
+          </div>
+        )}
+
+        {/* Personal Records */}
+        {activities.length > 0 && (
+          <div className="mb-6">
+            <PersonalRecords activities={activities} />
+          </div>
+        )}
+
+        {/* Calendar View */}
+        {activities.length > 0 && (
+          <div className="mb-6">
+            <CalendarView activities={activities} />
+          </div>
+        )}
 
         {/* Training Metrics */}
         {metrics && (
