@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { TrainingMetrics } from '@/lib/types';
 import { RecentActivities } from '@/components/RecentActivities';
+import { WeeklyPlanCard } from '@/components/WeeklyPlanCard';
+import { getNextWeekStarts } from '@/lib/utils/weeks';
 
 interface WorkoutRecommendation {
   sessionNumber: number;
@@ -34,18 +36,24 @@ interface Activity {
   workoutType?: string;
 }
 
+interface WeeklyPlan {
+  id?: string;
+  weekStartDate: string;
+  numSessions: number;
+  sessionDurations: number[];
+}
+
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [numSessions, setNumSessions] = useState(3);
-  const [sessionDurations, setSessionDurations] = useState<number[]>([60, 60, 60]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [metrics, setMetrics] = useState<TrainingMetrics | null>(null);
   const [recommendations, setRecommendations] = useState<WorkoutRecommendation[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [weeklyPlans, setWeeklyPlans] = useState<WeeklyPlan[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,19 +62,54 @@ export default function Dashboard() {
     }
   }, [status, router]);
 
-  useEffect(() => {
-    // Update session durations array when number of sessions changes
-    setSessionDurations(Array(numSessions).fill(60));
-  }, [numSessions]);
-
-  // Auto-sync on first load
+  // Auto-sync and load weekly plans on first load
   useEffect(() => {
     if (status === 'authenticated' && initialLoad) {
       setInitialLoad(false);
       syncActivities();
+      loadWeeklyPlans();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, initialLoad]);
+
+  const loadWeeklyPlans = async () => {
+    try {
+      const response = await fetch('/api/weekly-plans');
+      if (response.ok) {
+        const data = await response.json();
+        setWeeklyPlans(data.plans);
+      }
+    } catch (err) {
+      console.error('Error loading weekly plans:', err);
+    }
+  };
+
+  const saveWeeklyPlan = async (
+    weekStartDate: string,
+    numSessions: number,
+    sessionDurations: number[]
+  ) => {
+    try {
+      const response = await fetch('/api/weekly-plans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          weekStartDate,
+          numSessions,
+          sessionDurations,
+        }),
+      });
+
+      if (response.ok) {
+        await loadWeeklyPlans(); // Reload to get updated data
+      }
+    } catch (err) {
+      console.error('Error saving weekly plan:', err);
+      setError('Failed to save weekly plan');
+    }
+  };
 
   const fetchActivities = async () => {
     try {
@@ -106,7 +149,10 @@ export default function Dashboard() {
     }
   };
 
-  const generateRecommendations = async () => {
+  const generateRecommendations = async (
+    numSessions: number,
+    sessionDurations: number[]
+  ) => {
     setLoading(true);
     setError(null);
 
@@ -129,6 +175,14 @@ export default function Dashboard() {
       const data = await response.json();
       setRecommendations(data.recommendations);
       setMetrics(data.metrics);
+
+      // Scroll to recommendations
+      setTimeout(() => {
+        const recommendationsElement = document.getElementById('recommendations');
+        if (recommendationsElement) {
+          recommendationsElement.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
     } catch (err) {
       setError('Failed to generate recommendations. Please try again.');
       console.error(err);
@@ -284,63 +338,35 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Session Planning */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Plan Your Week</h2>
+        {/* Weekly Planning - Rolling 4 Weeks */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold mb-4">Plan Your Training</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Plan your sessions for the next 4 weeks. Your plans are saved automatically.
+          </p>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Number of sessions this week
-              </label>
-              <select
-                value={numSessions}
-                onChange={(e) => setNumSessions(Number(e.target.value))}
-                className="w-full md:w-64 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500"
-              >
-                {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-                  <option key={n} value={n}>
-                    {n} {n === 1 ? 'session' : 'sessions'}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {getNextWeekStarts(4).map((weekStart) => {
+              const weekStartISO = weekStart.toISOString();
+              const existingPlan = weeklyPlans.find(
+                (p) => new Date(p.weekStartDate).getTime() === weekStart.getTime()
+              );
 
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Session durations (minutes)
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {sessionDurations.map((duration, index) => (
-                  <div key={index}>
-                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
-                      Session {index + 1}
-                    </label>
-                    <input
-                      type="number"
-                      min="15"
-                      max="180"
-                      step="15"
-                      value={duration}
-                      onChange={(e) => {
-                        const newDurations = [...sessionDurations];
-                        newDurations[index] = Number(e.target.value);
-                        setSessionDurations(newDurations);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={generateRecommendations}
-              disabled={loading}
-              className="w-full md:w-auto bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-medium py-3 px-8 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Generating...' : 'Get Workout Recommendations'}
-            </button>
+              return (
+                <WeeklyPlanCard
+                  key={weekStartISO}
+                  weekStartDate={weekStartISO}
+                  initialNumSessions={existingPlan?.numSessions || 0}
+                  initialSessionDurations={existingPlan?.sessionDurations || []}
+                  onSave={(numSessions, sessionDurations) => {
+                    saveWeeklyPlan(weekStartISO, numSessions, sessionDurations);
+                  }}
+                  onGenerateRecommendations={(numSessions, sessionDurations) => {
+                    generateRecommendations(numSessions, sessionDurations);
+                  }}
+                />
+              );
+            })}
           </div>
         </div>
 
@@ -353,7 +379,7 @@ export default function Dashboard() {
 
         {/* Recommendations */}
         {recommendations.length > 0 && (
-          <div className="space-y-4">
+          <div id="recommendations" className="space-y-4">
             <h2 className="text-2xl font-bold">Your Personalized Workouts</h2>
             {recommendations.map((rec) => (
               <div
