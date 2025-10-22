@@ -33,10 +33,19 @@ export const authOptions: NextAuthOptions = {
             }),
           });
 
-          const tokens = await response.json();
+          const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(`Token exchange failed: ${JSON.stringify(tokens)}`);
+            throw new Error(`Token exchange failed: ${JSON.stringify(data)}`);
+          }
+
+          // Strava returns athlete data in the token response
+          // Extract it for later use but don't include it in tokens
+          const { athlete, ...tokens } = data;
+
+          // Store athlete_id if provided
+          if (athlete?.id) {
+            tokens.athlete_id = athlete.id;
           }
 
           return { tokens };
