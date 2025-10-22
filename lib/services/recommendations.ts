@@ -26,7 +26,7 @@ export class RecommendationEngine {
   /**
    * Generate workout recommendations for the week
    */
-  generateRecommendations(): WorkoutRecommendation[] {
+  async generateRecommendations(): Promise<WorkoutRecommendation[]> {
     const recommendations: WorkoutRecommendation[] = [];
 
     // Determine overall training needs
@@ -44,7 +44,7 @@ export class RecommendationEngine {
         duration
       );
 
-      const workout = ZwiftWorkoutService.findBestMatch(
+      const workout = await ZwiftWorkoutService.findBestMatch(
         targetType,
         duration,
         targetTSS
