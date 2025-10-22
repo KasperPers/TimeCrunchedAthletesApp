@@ -1,9 +1,17 @@
 import { ZwiftWorkout } from '../types';
 
 /**
- * Mock Zwift workout library
- * In production, this would be replaced with actual API calls or web scraping
- * from https://whatsonzwift.com/workouts or Zwift's official API
+ * Curated Zwift-style workout library
+ *
+ * These are example workouts modeled after popular Zwift training plans.
+ * To find similar workouts in Zwift:
+ * 1. Open Zwift app
+ * 2. Go to Training
+ * 3. Search by workout type (Recovery, Endurance, Tempo, Threshold, VO2Max)
+ * 4. Filter by duration
+ * 5. Look for workouts with similar TSS values
+ *
+ * Or use whatsonzwift.com to browse the full Zwift workout library.
  */
 
 export const ZWIFT_WORKOUTS: ZwiftWorkout[] = [

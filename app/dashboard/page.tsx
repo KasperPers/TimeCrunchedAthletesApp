@@ -446,14 +446,9 @@ export default function Dashboard() {
                     <span className="ml-2 font-medium">{rec.workout.tss}</span>
                   </div>
                   <div className="col-span-2 md:col-span-1">
-                    <a
-                      href={rec.workout.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      View on Zwift →
-                    </a>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Find in Zwift app → Training → {rec.workout.type}
+                    </div>
                   </div>
                 </div>
 
