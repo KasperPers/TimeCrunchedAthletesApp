@@ -17,8 +17,52 @@ export const authOptions: NextAuthOptions = {
           response_type: 'code',
         },
       },
-      token: 'https://www.strava.com/oauth/token',
-      userinfo: 'https://www.strava.com/api/v3/athlete',
+      token: {
+        url: 'https://www.strava.com/oauth/token',
+        async request({ client, params, checks, provider }) {
+          const response = await fetch('https://www.strava.com/oauth/token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              client_id: provider.clientId,
+              client_secret: provider.clientSecret,
+              code: params.code,
+              grant_type: 'authorization_code',
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(`Token exchange failed: ${JSON.stringify(data)}`);
+          }
+
+          // Strava returns athlete data in the token response
+          // Extract it for later use but don't include it in tokens
+          const { athlete, ...tokens } = data;
+
+          // Store athlete_id if provided
+          if (athlete?.id) {
+            tokens.athlete_id = athlete.id;
+          }
+
+          return { tokens };
+        },
+      },
+      userinfo: {
+        url: 'https://www.strava.com/api/v3/athlete',
+        async request({ tokens, provider }) {
+          const response = await fetch('https://www.strava.com/api/v3/athlete', {
+            headers: {
+              Authorization: `Bearer ${tokens.access_token}`,
+            },
+          });
+
+          return await response.json();
+        },
+      },
       clientId: process.env.STRAVA_CLIENT_ID,
       clientSecret: process.env.STRAVA_CLIENT_SECRET,
       profile(profile) {
