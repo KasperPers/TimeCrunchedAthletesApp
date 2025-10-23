@@ -282,6 +282,38 @@ export default function Dashboard() {
     return null;
   };
 
+  // Get the scheduled date for a specific session number
+  const getSessionDate = (sessionNumber: number): Date | null => {
+    const plan = getCurrentWeekPlan();
+    if (!plan) return null;
+
+    // Calculate Monday of current week
+    const today = new Date();
+    const currentDay = today.getDay();
+    const monday = new Date(today);
+    const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    monday.setDate(today.getDate() + daysToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    // Find which days have workouts scheduled
+    const daysWithWorkouts: number[] = [];
+    plan.sessionDurations.forEach((duration: number, index: number) => {
+      if (duration > 0) {
+        daysWithWorkouts.push(index);
+      }
+    });
+
+    // Map session number (1-based) to day index
+    if (sessionNumber <= daysWithWorkouts.length) {
+      const dayIndex = daysWithWorkouts[sessionNumber - 1];
+      const sessionDate = new Date(monday);
+      sessionDate.setDate(monday.getDate() + dayIndex);
+      return sessionDate;
+    }
+
+    return null;
+  };
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -482,6 +514,21 @@ export default function Dashboard() {
                   <div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                       Session {rec.sessionNumber}
+                      {(() => {
+                        const sessionDate = getSessionDate(rec.sessionNumber);
+                        if (sessionDate) {
+                          return (
+                            <span className="ml-2">
+                              • {sessionDate.toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                     <h3 className="text-xl font-bold">{rec.workout.name}</h3>
                   </div>
