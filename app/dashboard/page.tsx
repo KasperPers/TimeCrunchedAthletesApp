@@ -140,7 +140,8 @@ export default function Dashboard() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to sync activities');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to sync activities');
       }
 
       const data = await response.json();
