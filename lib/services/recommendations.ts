@@ -50,20 +50,18 @@ export class RecommendationEngine {
         targetTSS
       );
 
-      if (workout) {
-        const reason = this.generateReason(
-          targetType,
-          i + 1,
-          this.numSessions,
-          needs
-        );
+      const reason = this.generateReason(
+        targetType,
+        i + 1,
+        this.numSessions,
+        needs
+      );
 
-        recommendations.push({
-          workout,
-          reason,
-          sessionNumber: i + 1,
-        });
-      }
+      recommendations.push({
+        workout,
+        reason,
+        sessionNumber: i + 1,
+      });
     }
 
     return recommendations;
