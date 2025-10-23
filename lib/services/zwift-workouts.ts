@@ -206,10 +206,8 @@ export class ZwiftWorkoutService {
       const where: any = {};
 
       if (filters?.type) {
-        where.type = {
-          equals: filters.type,
-          mode: 'insensitive',
-        };
+        // SQLite doesn't support case-insensitive mode
+        where.type = filters.type;
       }
 
       if (filters?.minDuration || filters?.maxDuration) {
