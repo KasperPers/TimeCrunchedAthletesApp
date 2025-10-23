@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { StravaService } from '@/lib/services/strava';
 import { TrainingAnalysisService } from '@/lib/services/analysis';
 import { RecommendationEngine } from '@/lib/services/recommendations';
+import { getValidStravaToken, refreshStravaToken } from '@/lib/utils/strava-auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,9 +47,26 @@ export async function POST(request: NextRequest) {
 
     const userFTP = user?.ftp || 200;
 
+    // Get valid access token (refresh if expired)
+    let accessToken = await getValidStravaToken(account);
+
     // Fetch recent activities from Strava
-    const stravaService = new StravaService(account.access_token);
-    const activities = await stravaService.getRecentActivities(42);
+    const stravaService = new StravaService(accessToken);
+
+    let activities;
+    try {
+      activities = await stravaService.getRecentActivities(42);
+    } catch (error: any) {
+      // If we still get 401, try refreshing token even if it wasn't expired
+      if (error.response?.status === 401 || error.message?.includes('401')) {
+        console.log('Got 401 error, attempting token refresh...');
+        accessToken = await refreshStravaToken(account);
+        const stravaServiceRetry = new StravaService(accessToken);
+        activities = await stravaServiceRetry.getRecentActivities(42);
+      } else {
+        throw error;
+      }
+    }
 
     // Calculate training metrics
     const analysisService = new TrainingAnalysisService(activities, userFTP);
