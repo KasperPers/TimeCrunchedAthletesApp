@@ -59,10 +59,11 @@ export async function GET(request: NextRequest) {
       ],
     });
 
-    // Parse tags from JSON string
+    // Parse JSON fields
     const parsedWorkouts = workouts.map((w) => ({
       ...w,
       tags: w.tags ? JSON.parse(w.tags) : [],
+      intervals: w.intervals ? JSON.parse(w.intervals) : undefined,
     }));
 
     return NextResponse.json({

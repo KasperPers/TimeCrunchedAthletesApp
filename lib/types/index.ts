@@ -46,6 +46,15 @@ export interface WorkoutRecommendationInput {
   };
 }
 
+export interface WorkoutInterval {
+  type: 'warmup' | 'cooldown' | 'interval' | 'rest' | 'steady';
+  duration: number; // in seconds
+  powerLow: number; // % of FTP
+  powerHigh: number; // % of FTP
+  cadence?: number;
+  label?: string;
+}
+
 export interface ZwiftWorkout {
   name: string;
   url: string;
@@ -53,4 +62,6 @@ export interface ZwiftWorkout {
   type: string; // FTP, Endurance, VO2Max, etc.
   tss: number;
   description: string;
+  intervals?: WorkoutInterval[]; // Detailed interval structure
+  buildInstructions?: string; // How to build in Zwift
 }
