@@ -7,6 +7,84 @@ import { TrainingAnalysisService } from '@/lib/services/analysis';
 import { RecommendationEngine } from '@/lib/services/recommendations';
 import { getValidStravaToken, refreshStravaToken } from '@/lib/utils/strava-auth';
 
+/**
+ * GET /api/recommendations
+ * Fetch saved recommendations for the current week
+ */
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get start of current week (Sunday)
+    const now = new Date();
+    const currentWeekStart = new Date(now);
+    currentWeekStart.setDate(now.getDate() - now.getDay());
+    currentWeekStart.setHours(0, 0, 0, 0);
+
+    // Find the weekly plan for current week
+    const weeklyPlan = await prisma.weeklyPlan.findFirst({
+      where: {
+        userId: session.user.id,
+        weekStartDate: currentWeekStart,
+      },
+    });
+
+    if (!weeklyPlan) {
+      return NextResponse.json({ recommendations: [] });
+    }
+
+    // Fetch recommendations for this week's plan
+    const dbRecommendations = await prisma.recommendation.findMany({
+      where: {
+        weeklyPlanId: weeklyPlan.id,
+      },
+      orderBy: {
+        sessionNumber: 'asc',
+      },
+    });
+
+    // Fetch full workout details including intervals
+    const recommendations = await Promise.all(
+      dbRecommendations.map(async (rec) => {
+        const workout = await prisma.zwiftWorkout.findFirst({
+          where: { url: rec.workoutUrl },
+        });
+
+        return {
+          sessionNumber: rec.sessionNumber,
+          workout: {
+            name: rec.workoutName,
+            url: rec.workoutUrl,
+            duration: rec.workoutDuration,
+            type: rec.workoutType,
+            tss: rec.workoutTss,
+            description: rec.description,
+            intervals: workout?.intervals ? JSON.parse(workout.intervals) : undefined,
+            buildInstructions: workout?.buildInstructions || undefined,
+          },
+          reason: rec.reason,
+        };
+      })
+    );
+
+    return NextResponse.json({ recommendations });
+  } catch (error) {
+    console.error('Error fetching recommendations:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch recommendations' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/recommendations
+ * Generate new workout recommendations based on training data
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

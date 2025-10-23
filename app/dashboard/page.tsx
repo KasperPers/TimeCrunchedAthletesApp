@@ -75,6 +75,7 @@ export default function Dashboard() {
       setInitialLoad(false);
       syncActivities();
       loadWeeklyPlans();
+      loadSavedRecommendations();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, initialLoad]);
@@ -88,6 +89,21 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error('Error loading weekly plans:', err);
+    }
+  };
+
+  const loadSavedRecommendations = async () => {
+    try {
+      const response = await fetch('/api/recommendations');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.recommendations && data.recommendations.length > 0) {
+          console.log('Dashboard: Loaded saved recommendations:', data.recommendations);
+          setRecommendations(data.recommendations);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading recommendations:', err);
     }
   };
 
@@ -176,6 +192,9 @@ export default function Dashboard() {
       monday.setHours(0, 0, 0, 0);
 
       await saveWeeklyPlan(monday.toISOString(), numSessions, sessionDurations);
+
+      // Clear recommendations when plan changes (user needs to regenerate)
+      setRecommendations([]);
     } catch (err) {
       console.error('Error saving plan:', err);
       setError('Failed to save weekly plan');
