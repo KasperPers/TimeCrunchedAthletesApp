@@ -28,6 +28,17 @@ export function WeeklyPlanCard({
   const isCurrent = isCurrentWeek(weekStart);
   const isEmpty = initialNumSessions === 0;
 
+  // Update state when props change (after save/reload from database)
+  useEffect(() => {
+    if (initialNumSessions > 0) {
+      setNumSessions(initialNumSessions);
+    }
+    if (initialSessionDurations.length > 0) {
+      setSessionDurations(initialSessionDurations);
+    }
+    setHasChanges(false);
+  }, [initialNumSessions, initialSessionDurations]);
+
   useEffect(() => {
     // Update session durations array when number of sessions changes
     if (sessionDurations.length !== numSessions) {

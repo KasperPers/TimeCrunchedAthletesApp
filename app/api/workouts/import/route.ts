@@ -20,15 +20,10 @@ interface ImportWorkout {
 /**
  * POST /api/workouts/import
  * Import workouts from JSON file or request body
+ * No authentication required - this is for initial data loading
  */
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication (optional - you might want this to be admin-only)
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     // Get workouts from request body or file
     let workouts: ImportWorkout[] = [];
     const body = await request.json().catch(() => null);
