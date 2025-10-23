@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { StravaService, calculateTSS, determineWorkoutType } from '@/lib/services/strava';
 import { TrainingAnalysisService } from '@/lib/services/analysis';
+import { getValidStravaToken, refreshStravaToken } from '@/lib/utils/strava-auth';
 
 export async function POST() {
   try {
@@ -28,6 +29,15 @@ export async function POST() {
       );
     }
 
+    // Check if token is expired and refresh if needed
+    let accessToken = account.access_token;
+    const now = Math.floor(Date.now() / 1000);
+
+    if (account.expires_at && account.expires_at < now) {
+      console.log('Access token expired, refreshing...');
+      accessToken = await refreshStravaToken(account);
+    }
+
     // Get user's FTP
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -36,8 +46,22 @@ export async function POST() {
     const userFTP = user?.ftp || 200; // Default FTP if not set
 
     // Fetch recent activities from Strava
-    const stravaService = new StravaService(account.access_token);
-    const activities = await stravaService.getRecentActivities(42); // Last 6 weeks
+    const stravaService = new StravaService(accessToken);
+
+    let activities;
+    try {
+      activities = await stravaService.getRecentActivities(42); // Last 6 weeks
+    } catch (error: any) {
+      // If we still get 401, try refreshing token even if it wasn't expired
+      if (error.response?.status === 401 || error.message?.includes('401')) {
+        console.log('Got 401 error, attempting token refresh...');
+        accessToken = await refreshStravaToken(account);
+        const stravaServiceRetry = new StravaService(accessToken);
+        activities = await stravaServiceRetry.getRecentActivities(42);
+      } else {
+        throw error;
+      }
+    }
 
     // Save or update activities in database
     for (const activity of activities) {
@@ -100,10 +124,10 @@ export async function POST() {
       activitiesSynced: activities.length,
       metrics,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing activities:', error);
     return NextResponse.json(
-      { error: 'Failed to sync activities' },
+      { error: error.message || 'Failed to sync activities' },
       { status: 500 }
     );
   }
