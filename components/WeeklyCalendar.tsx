@@ -26,12 +26,16 @@ interface WeeklyCalendarProps {
   onGenerateRecommendations: (sessions: DaySession[]) => void;
   recommendations?: any[];
   loading?: boolean;
+  savedPlan?: {
+    numSessions: number;
+    sessionDurations: number[];
+  } | null;
 }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommendations = [], loading = false }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommendations = [], loading = false, savedPlan = null }: WeeklyCalendarProps) {
   const [sessions, setSessions] = useState<DaySession[]>([]);
   const [selectedDay, setSelectedDay] = useState<DaySession | null>(null);
   const [workoutDetailDay, setWorkoutDetailDay] = useState<DaySession | null>(null);
@@ -39,39 +43,46 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
 
   // Update sessions with recommendations when they arrive
   useEffect(() => {
-    if (recommendations.length > 0 && sessions.length > 0) {
-      const sessionsWithWorkouts = sessions.filter((s) => s.hasWorkout);
+    if (recommendations.length > 0) {
+      console.log('WeeklyCalendar: Received recommendations:', recommendations);
+      setSessions(prevSessions => {
+        const sessionsWithWorkouts = prevSessions.filter((s) => s.hasWorkout);
+        console.log('WeeklyCalendar: Sessions with workouts:', sessionsWithWorkouts.length);
 
-      const updatedSessions = sessions.map((session) => {
-        if (!session.hasWorkout) return session;
+        return prevSessions.map((session) => {
+          if (!session.hasWorkout) return session;
 
-        // Find matching recommendation by index
-        const sessionIndex = sessionsWithWorkouts.findIndex(
-          (s) => s.date.getTime() === session.date.getTime()
-        );
+          // Find matching recommendation by index
+          const sessionIndex = sessionsWithWorkouts.findIndex(
+            (s) => s.date.getTime() === session.date.getTime()
+          );
 
-        const rec = recommendations[sessionIndex];
-        if (rec && rec.workout) {
-          return {
-            ...session,
-            workout: {
+          const rec = recommendations[sessionIndex];
+          if (rec && rec.workout) {
+            console.log(`WeeklyCalendar: Mapping workout for session ${sessionIndex}:`, {
               name: rec.workout.name,
-              type: rec.workout.type,
-              tss: rec.workout.tss,
-              intervals: rec.workout.intervals,
-              buildInstructions: rec.workout.buildInstructions,
-            },
-          };
-        }
+              hasIntervals: !!rec.workout.intervals,
+              intervalsCount: rec.workout.intervals?.length
+            });
+            return {
+              ...session,
+              workout: {
+                name: rec.workout.name,
+                type: rec.workout.type,
+                tss: rec.workout.tss,
+                intervals: rec.workout.intervals,
+                buildInstructions: rec.workout.buildInstructions,
+              },
+            };
+          }
 
-        return session;
+          return session;
+        });
       });
-
-      setSessions(updatedSessions);
     }
   }, [recommendations]);
 
-  // Initialize with current week (Mon-Sun)
+  // Initialize with current week (Mon-Sun) and load saved plan
   useEffect(() => {
     const today = new Date();
     const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
@@ -88,16 +99,25 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
       const date = new Date(monday);
       date.setDate(monday.getDate() + i);
 
+      // Check if this day has a saved workout
+      let duration: number | undefined = undefined;
+      let hasWorkout = false;
+
+      if (savedPlan && savedPlan.sessionDurations && i < savedPlan.sessionDurations.length) {
+        duration = savedPlan.sessionDurations[i];
+        hasWorkout = duration > 0;
+      }
+
       weekDays.push({
         dayOfWeek: i + 1, // 1-7 (Mon-Sun)
         date,
-        duration: undefined,
-        hasWorkout: false,
+        duration,
+        hasWorkout,
       });
     }
 
     setSessions(weekDays);
-  }, []);
+  }, [savedPlan]);
 
   const handleDayClick = (day: DaySession) => {
     setSelectedDay(day);

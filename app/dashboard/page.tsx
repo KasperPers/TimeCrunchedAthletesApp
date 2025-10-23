@@ -158,18 +158,14 @@ export default function Dashboard() {
   };
 
   const handleSavePlan = async (sessions: any[]) => {
-    // Save plan for current week
-    const sessionsWithWorkouts = sessions.filter((s: any) => s.hasWorkout && s.duration);
-
-    if (sessionsWithWorkouts.length === 0) {
-      return; // Nothing to save
-    }
-
     try {
-      // For now, we'll save using the old API format
-      // Convert day-based sessions to the format the API expects
-      const numSessions = sessionsWithWorkouts.length;
-      const sessionDurations = sessionsWithWorkouts.map((s: any) => s.duration);
+      // Save all 7 days - use 0 for rest days to preserve day-of-week info
+      const sessionDurations = sessions.map((s: any) => s.duration || 0);
+      const numSessions = sessions.filter((s: any) => s.hasWorkout && s.duration).length;
+
+      if (numSessions === 0) {
+        return; // Nothing to save
+      }
 
       // Get Monday of current week
       const today = new Date();
@@ -240,6 +236,30 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Get current week's saved plan
+  const getCurrentWeekPlan = () => {
+    const today = new Date();
+    const currentDay = today.getDay();
+    const monday = new Date(today);
+    const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    monday.setDate(today.getDate() + daysToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const currentWeekPlan = weeklyPlans.find(plan => {
+      const planDate = new Date(plan.weekStartDate);
+      return planDate.getTime() === monday.getTime();
+    });
+
+    if (currentWeekPlan) {
+      return {
+        numSessions: currentWeekPlan.numSessions,
+        sessionDurations: JSON.parse(currentWeekPlan.sessionDurations),
+      };
+    }
+
+    return null;
   };
 
   if (status === 'loading') {
@@ -418,6 +438,7 @@ export default function Dashboard() {
             onGenerateRecommendations={handleGenerateWorkouts}
             recommendations={recommendations}
             loading={loading}
+            savedPlan={getCurrentWeekPlan()}
           />
         </div>
 
