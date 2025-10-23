@@ -255,7 +255,8 @@ export default function Dashboard() {
     if (currentWeekPlan) {
       return {
         numSessions: currentWeekPlan.numSessions,
-        sessionDurations: JSON.parse(currentWeekPlan.sessionDurations),
+        // sessionDurations is already parsed by the API route
+        sessionDurations: currentWeekPlan.sessionDurations,
       };
     }
 
