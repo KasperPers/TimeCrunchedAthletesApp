@@ -3,13 +3,14 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { TrainingMetrics } from '@/lib/types';
+import { TrainingMetrics, WorkoutInterval } from '@/lib/types';
 import { RecentActivities } from '@/components/RecentActivities';
 import { WeeklyPlanCard } from '@/components/WeeklyPlanCard';
 import { WeeklyTSSChart } from '@/components/WeeklyTSSChart';
 import { ProgressTracking } from '@/components/ProgressTracking';
 import { PersonalRecords } from '@/components/PersonalRecords';
 import { CalendarView } from '@/components/CalendarView';
+import { WorkoutVisualization } from '@/components/WorkoutVisualization';
 import { getNextWeekStarts } from '@/lib/utils/weeks';
 
 interface WorkoutRecommendation {
@@ -21,6 +22,8 @@ interface WorkoutRecommendation {
     type: string;
     tss: number;
     description: string;
+    intervals?: WorkoutInterval[];
+    buildInstructions?: string;
   };
   reason: string;
 }
@@ -451,6 +454,31 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
+
+                {/* Workout Visualization */}
+                {rec.workout.intervals && rec.workout.intervals.length > 0 && (
+                  <div className="mb-4">
+                    <WorkoutVisualization
+                      intervals={rec.workout.intervals}
+                      workoutName={rec.workout.name}
+                      workoutType={rec.workout.type}
+                      duration={rec.workout.duration}
+                      tss={rec.workout.tss}
+                    />
+                  </div>
+                )}
+
+                {/* Build Instructions */}
+                {rec.workout.buildInstructions && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-4">
+                    <div className="text-xs text-blue-600 dark:text-blue-400 uppercase mb-1 font-semibold">
+                      📝 How to build this in Zwift
+                    </div>
+                    <pre className="text-sm text-blue-900 dark:text-blue-200 whitespace-pre-wrap font-mono">
+                      {rec.workout.buildInstructions}
+                    </pre>
+                  </div>
+                )}
 
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
                   <div className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">

@@ -239,6 +239,8 @@ export class ZwiftWorkoutService {
           type: w.type,
           tss: w.tss || 0,
           description: w.description || '',
+          intervals: w.intervals ? JSON.parse(w.intervals) : undefined,
+          buildInstructions: w.buildInstructions || undefined,
         }));
       }
 

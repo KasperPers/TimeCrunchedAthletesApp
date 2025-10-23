@@ -150,6 +150,10 @@ model ZwiftWorkout {
   author      String?  // Workout author/plan
   tags        String?  // JSON array of tags
 
+  // Workout structure for visualization
+  intervals         String?  // JSON array of interval objects
+  buildInstructions String?  // How to manually build in Zwift
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
             difficulty: workout.difficulty || null,
             author: workout.author || null,
             tags: workout.tags ? JSON.stringify(workout.tags) : null,
+            intervals: workout.intervals ? JSON.stringify(workout.intervals) : null,
+            buildInstructions: workout.buildInstructions || null,
           },
           create: {
             name: workout.name,
@@ -94,6 +96,8 @@ export async function POST(request: NextRequest) {
             difficulty: workout.difficulty || null,
             author: workout.author || null,
             tags: workout.tags ? JSON.stringify(workout.tags) : null,
+            intervals: workout.intervals ? JSON.stringify(workout.intervals) : null,
+            buildInstructions: workout.buildInstructions || null,
           },
         });
 
