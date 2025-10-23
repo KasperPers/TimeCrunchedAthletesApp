@@ -54,6 +54,15 @@ export async function GET() {
           where: { url: rec.workoutUrl },
         });
 
+        console.log(`GET /api/recommendations - Workout ${rec.workoutName}:`, {
+          foundInDB: !!workout,
+          hasIntervals: !!workout?.intervals,
+          intervalsLength: workout?.intervals?.length,
+        });
+
+        const intervals = workout?.intervals ? JSON.parse(workout.intervals) : undefined;
+        console.log(`  Parsed intervals:`, intervals ? `${intervals.length} intervals` : 'none');
+
         return {
           sessionNumber: rec.sessionNumber,
           workout: {
@@ -63,7 +72,7 @@ export async function GET() {
             type: rec.workoutType,
             tss: rec.workoutTss,
             description: rec.description,
-            intervals: workout?.intervals ? JSON.parse(workout.intervals) : undefined,
+            intervals,
             buildInstructions: workout?.buildInstructions || undefined,
           },
           reason: rec.reason,
@@ -71,6 +80,7 @@ export async function GET() {
       })
     );
 
+    console.log(`GET /api/recommendations - Returning ${recommendations.length} recommendations`);
     return NextResponse.json({ recommendations });
   } catch (error) {
     console.error('Error fetching recommendations:', error);
