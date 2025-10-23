@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { DayCard } from './DayCard';
 import { SessionModal } from './SessionModal';
-import { WorkoutDetailModal } from './WorkoutDetailModal';
-import { WorkoutVisualization } from './WorkoutVisualization';
 import { WorkoutInterval } from '@/lib/types';
 
 interface DaySession {
@@ -26,52 +24,62 @@ interface WeeklyCalendarProps {
   onGenerateRecommendations: (sessions: DaySession[]) => void;
   recommendations?: any[];
   loading?: boolean;
+  savedPlan?: {
+    numSessions: number;
+    sessionDurations: number[];
+  } | null;
 }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommendations = [], loading = false }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommendations = [], loading = false, savedPlan = null }: WeeklyCalendarProps) {
   const [sessions, setSessions] = useState<DaySession[]>([]);
   const [selectedDay, setSelectedDay] = useState<DaySession | null>(null);
-  const [workoutDetailDay, setWorkoutDetailDay] = useState<DaySession | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Update sessions with recommendations when they arrive
   useEffect(() => {
-    if (recommendations.length > 0 && sessions.length > 0) {
-      const sessionsWithWorkouts = sessions.filter((s) => s.hasWorkout);
+    if (recommendations.length > 0) {
+      console.log('WeeklyCalendar: Received recommendations:', recommendations);
+      setSessions(prevSessions => {
+        const sessionsWithWorkouts = prevSessions.filter((s) => s.hasWorkout);
+        console.log('WeeklyCalendar: Sessions with workouts:', sessionsWithWorkouts.length);
 
-      const updatedSessions = sessions.map((session) => {
-        if (!session.hasWorkout) return session;
+        return prevSessions.map((session) => {
+          if (!session.hasWorkout) return session;
 
-        // Find matching recommendation by index
-        const sessionIndex = sessionsWithWorkouts.findIndex(
-          (s) => s.date.getTime() === session.date.getTime()
-        );
+          // Find matching recommendation by index
+          const sessionIndex = sessionsWithWorkouts.findIndex(
+            (s) => s.date.getTime() === session.date.getTime()
+          );
 
-        const rec = recommendations[sessionIndex];
-        if (rec && rec.workout) {
-          return {
-            ...session,
-            workout: {
+          const rec = recommendations[sessionIndex];
+          if (rec && rec.workout) {
+            console.log(`WeeklyCalendar: Mapping workout for session ${sessionIndex}:`, {
               name: rec.workout.name,
-              type: rec.workout.type,
-              tss: rec.workout.tss,
-              intervals: rec.workout.intervals,
-              buildInstructions: rec.workout.buildInstructions,
-            },
-          };
-        }
+              hasIntervals: !!rec.workout.intervals,
+              intervalsCount: rec.workout.intervals?.length
+            });
+            return {
+              ...session,
+              workout: {
+                name: rec.workout.name,
+                type: rec.workout.type,
+                tss: rec.workout.tss,
+                intervals: rec.workout.intervals,
+                buildInstructions: rec.workout.buildInstructions,
+              },
+            };
+          }
 
-        return session;
+          return session;
+        });
       });
-
-      setSessions(updatedSessions);
     }
   }, [recommendations]);
 
-  // Initialize with current week (Mon-Sun)
+  // Initialize with current week (Mon-Sun) and load saved plan
   useEffect(() => {
     const today = new Date();
     const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
@@ -88,23 +96,28 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
       const date = new Date(monday);
       date.setDate(monday.getDate() + i);
 
+      // Check if this day has a saved workout
+      let duration: number | undefined = undefined;
+      let hasWorkout = false;
+
+      if (savedPlan && savedPlan.sessionDurations && i < savedPlan.sessionDurations.length) {
+        duration = savedPlan.sessionDurations[i];
+        hasWorkout = duration > 0;
+      }
+
       weekDays.push({
         dayOfWeek: i + 1, // 1-7 (Mon-Sun)
         date,
-        duration: undefined,
-        hasWorkout: false,
+        duration,
+        hasWorkout,
       });
     }
 
     setSessions(weekDays);
-  }, []);
+  }, [savedPlan]);
 
   const handleDayClick = (day: DaySession) => {
     setSelectedDay(day);
-  };
-
-  const handleWorkoutClick = (day: DaySession) => {
-    setWorkoutDetailDay(day);
   };
 
   const handleSaveSession = (duration: number) => {
@@ -214,49 +227,9 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
             workout={day.workout}
             isToday={isToday(day.date)}
             onClick={() => handleDayClick(day)}
-            onWorkoutClick={() => handleWorkoutClick(day)}
           />
         ))}
       </div>
-
-      {/* Workout Visualizations */}
-      {sessions.some((s) => s.workout) && (
-        <div className="space-y-4">
-          <h3 className="text-xl font-bold">Your Workouts This Week</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sessions
-              .filter((s) => s.workout)
-              .map((day, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold">
-                      {DAYS[day.dayOfWeek - 1]} - {day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </h4>
-                  </div>
-                  {day.workout?.intervals && (
-                    <WorkoutVisualization
-                      intervals={day.workout.intervals}
-                      workoutName={day.workout.name}
-                      workoutType={day.workout.type}
-                      duration={day.duration || 60}
-                      tss={day.workout.tss}
-                    />
-                  )}
-                  {day.workout?.buildInstructions && (
-                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm">
-                      <div className="text-xs text-blue-600 dark:text-blue-400 uppercase mb-1 font-semibold">
-                        📝 Build in Zwift
-                      </div>
-                      <pre className="text-blue-900 dark:text-blue-200 whitespace-pre-wrap font-mono text-xs">
-                        {day.workout.buildInstructions}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
 
       {/* Session Edit Modal */}
       {selectedDay && (
@@ -267,24 +240,6 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
           onSave={handleSaveSession}
           onRemove={handleRemoveSession}
           onClose={() => setSelectedDay(null)}
-        />
-      )}
-
-      {/* Workout Detail Modal */}
-      {workoutDetailDay && workoutDetailDay.workout && (
-        <WorkoutDetailModal
-          workout={{
-            name: workoutDetailDay.workout.name,
-            type: workoutDetailDay.workout.type,
-            duration: workoutDetailDay.duration || 60,
-            tss: workoutDetailDay.workout.tss,
-            description: `${workoutDetailDay.duration || 60} minute ${workoutDetailDay.workout.type} workout`,
-            intervals: workoutDetailDay.workout.intervals,
-            buildInstructions: workoutDetailDay.workout.buildInstructions,
-          }}
-          dayName={DAYS[workoutDetailDay.dayOfWeek - 1]}
-          date={workoutDetailDay.date}
-          onClose={() => setWorkoutDetailDay(null)}
         />
       )}
     </div>
