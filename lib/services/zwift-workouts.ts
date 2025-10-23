@@ -294,23 +294,24 @@ export class ZwiftWorkoutService {
 
   /**
    * Find best workout match based on requirements
+   * Always returns a workout (never null) by progressively widening search criteria
    */
   static async findBestMatch(
     targetType: string,
     targetDuration: number,
     targetTSS: number
-  ): Promise<ZwiftWorkout | null> {
-    const durationTolerance = 15; // minutes
+  ): Promise<ZwiftWorkout> {
+    let durationTolerance = 15; // minutes
     const tssTolerance = 20;
 
-    // Filter by type and approximate duration
+    // Try 1: Filter by type and approximate duration
     let candidates = await this.getWorkouts({
       type: targetType,
       minDuration: targetDuration - durationTolerance,
       maxDuration: targetDuration + durationTolerance,
     });
 
-    // If no exact type match, try related types
+    // Try 2: If no exact type match, try related types with same duration tolerance
     if (candidates.length === 0) {
       const relatedTypes = this.getRelatedTypes(targetType);
       const allWorkouts = await this.getWorkouts();
@@ -321,8 +322,30 @@ export class ZwiftWorkoutService {
       );
     }
 
+    // Try 3: Widen duration tolerance to ±30 minutes for target type
     if (candidates.length === 0) {
-      return null;
+      durationTolerance = 30;
+      candidates = await this.getWorkouts({
+        type: targetType,
+        minDuration: targetDuration - durationTolerance,
+        maxDuration: targetDuration + durationTolerance,
+      });
+    }
+
+    // Try 4: Any workout of target type (ignore duration)
+    if (candidates.length === 0) {
+      candidates = await this.getWorkouts({ type: targetType });
+    }
+
+    // Try 5: Last resort - get ALL workouts and pick closest match by duration
+    if (candidates.length === 0) {
+      console.warn(`No workouts found for type ${targetType}, using any available workout`);
+      candidates = await this.getWorkouts();
+    }
+
+    // Should never happen unless database is completely empty
+    if (candidates.length === 0) {
+      throw new Error('No workouts available in database or fallback workouts');
     }
 
     // Score each candidate based on duration and TSS match
@@ -370,9 +393,7 @@ export class ZwiftWorkoutService {
       const targetTSS = (duration / 60) * 70; // Rough estimate
 
       const workout = await this.findBestMatch(type, duration, targetTSS);
-      if (workout) {
-        recommendations.push(workout);
-      }
+      recommendations.push(workout);
     }
 
     return recommendations;

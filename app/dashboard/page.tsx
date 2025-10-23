@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { TrainingMetrics, WorkoutInterval } from '@/lib/types';
 import { RecentActivities } from '@/components/RecentActivities';
-import { WeeklyPlanCard } from '@/components/WeeklyPlanCard';
+import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { WeeklyTSSChart } from '@/components/WeeklyTSSChart';
 import { ProgressTracking } from '@/components/ProgressTracking';
 import { PersonalRecords } from '@/components/PersonalRecords';
 import { CalendarView } from '@/components/CalendarView';
 import { WorkoutVisualization } from '@/components/WorkoutVisualization';
-import { getNextWeekStarts } from '@/lib/utils/weeks';
+
 
 interface WorkoutRecommendation {
   sessionNumber: number;
@@ -155,6 +155,49 @@ export default function Dashboard() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleSavePlan = async (sessions: any[]) => {
+    // Save plan for current week
+    const sessionsWithWorkouts = sessions.filter((s: any) => s.hasWorkout && s.duration);
+
+    if (sessionsWithWorkouts.length === 0) {
+      return; // Nothing to save
+    }
+
+    try {
+      // For now, we'll save using the old API format
+      // Convert day-based sessions to the format the API expects
+      const numSessions = sessionsWithWorkouts.length;
+      const sessionDurations = sessionsWithWorkouts.map((s: any) => s.duration);
+
+      // Get Monday of current week
+      const today = new Date();
+      const currentDay = today.getDay();
+      const monday = new Date(today);
+      const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+      monday.setDate(today.getDate() + daysToMonday);
+      monday.setHours(0, 0, 0, 0);
+
+      await saveWeeklyPlan(monday.toISOString(), numSessions, sessionDurations);
+    } catch (err) {
+      console.error('Error saving plan:', err);
+      setError('Failed to save weekly plan');
+    }
+  };
+
+  const handleGenerateWorkouts = async (sessions: any[]) => {
+    const sessionsWithWorkouts = sessions.filter((s: any) => s.hasWorkout && s.duration);
+
+    if (sessionsWithWorkouts.length === 0) {
+      setError('Please add at least one workout session to your week');
+      return;
+    }
+
+    const numSessions = sessionsWithWorkouts.length;
+    const sessionDurations = sessionsWithWorkouts.map((s: any) => s.duration);
+
+    await generateRecommendations(numSessions, sessionDurations);
   };
 
   const generateRecommendations = async (
@@ -368,36 +411,14 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Weekly Planning - Rolling 4 Weeks */}
+        {/* Weekly Planning - Current Week Calendar */}
         <div className="mb-6">
-          <h2 className="text-2xl font-bold mb-4">Plan Your Training</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Plan your sessions for the next 4 weeks. Your plans are saved automatically.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {getNextWeekStarts(4).map((weekStart) => {
-              const weekStartISO = weekStart.toISOString();
-              const existingPlan = weeklyPlans.find(
-                (p) => new Date(p.weekStartDate).getTime() === weekStart.getTime()
-              );
-
-              return (
-                <WeeklyPlanCard
-                  key={weekStartISO}
-                  weekStartDate={weekStartISO}
-                  initialNumSessions={existingPlan?.numSessions || 0}
-                  initialSessionDurations={existingPlan?.sessionDurations || []}
-                  onSave={(numSessions, sessionDurations) => {
-                    saveWeeklyPlan(weekStartISO, numSessions, sessionDurations);
-                  }}
-                  onGenerateRecommendations={(numSessions, sessionDurations) => {
-                    generateRecommendations(numSessions, sessionDurations);
-                  }}
-                />
-              );
-            })}
-          </div>
+          <WeeklyCalendar
+            onSavePlan={handleSavePlan}
+            onGenerateRecommendations={handleGenerateWorkouts}
+            recommendations={recommendations}
+            loading={loading}
+          />
         </div>
 
         {/* Error Display */}

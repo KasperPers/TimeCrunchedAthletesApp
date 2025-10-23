@@ -15,6 +15,8 @@ interface ImportWorkout {
   difficulty?: string;
   author?: string;
   tags?: string[];
+  intervals?: any[];
+  buildInstructions?: string;
 }
 
 /**
