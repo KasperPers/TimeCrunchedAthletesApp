@@ -1,6 +1,7 @@
 'use client';
 
 import { WorkoutInterval } from '@/lib/types';
+import { MiniPowerProfile } from './MiniPowerProfile';
 
 interface DayCardProps {
   day: string;
@@ -16,6 +17,7 @@ interface DayCardProps {
   };
   isToday: boolean;
   onClick: () => void;
+  onWorkoutClick?: () => void; // Separate handler for workout details
 }
 
 export function DayCard({
@@ -27,6 +29,7 @@ export function DayCard({
   workout,
   isToday,
   onClick,
+  onWorkoutClick,
 }: DayCardProps) {
   const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
 
@@ -53,43 +56,78 @@ export function DayCard({
     ${isPast ? 'opacity-60' : 'hover:shadow-lg hover:scale-105'}
   `;
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // If clicking on a workout with intervals and onWorkoutClick is provided, show details
+    if (hasWorkout && workout?.intervals && onWorkoutClick && !(e.target as HTMLElement).closest('.edit-button')) {
+      onWorkoutClick();
+    } else {
+      onClick();
+    }
+  };
+
   return (
-    <div className={cardClasses} onClick={onClick}>
+    <div className={cardClasses} onClick={handleCardClick}>
       {/* Day Header */}
       <div className="mb-2">
-        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-          {dayShort}
-        </div>
-        <div className="text-lg font-bold">
-          {date.getDate()}
-        </div>
-        {isToday && (
-          <div className="absolute top-2 right-2">
-            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {dayShort}
+            </div>
+            <div className="text-lg font-bold">
+              {date.getDate()}
+            </div>
           </div>
-        )}
+          {isToday && (
+            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+          )}
+        </div>
       </div>
 
       {/* Session Info */}
       {hasWorkout ? (
-        <div className="space-y-1">
+        <div className="space-y-2">
           {workout && (
-            <div className="text-xs font-semibold truncate" title={workout.name}>
-              {workout.name}
-            </div>
-          )}
-          <div className="text-sm font-medium">
-            {duration ? `${duration} min` : 'Set duration'}
-          </div>
-          {workout && (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="px-2 py-0.5 bg-white dark:bg-gray-800 rounded-full font-medium">
-                {workout.type}
-              </span>
-              <span className="text-gray-600 dark:text-gray-400">
-                TSS {workout.tss}
-              </span>
-            </div>
+            <>
+              <div className="text-xs font-semibold truncate" title={workout.name}>
+                {workout.name}
+              </div>
+              <div className="text-sm font-medium">
+                {duration ? `${duration} min` : 'Set duration'}
+              </div>
+
+              {/* Mini Power Profile Visualization */}
+              {workout.intervals && workout.intervals.length > 0 && (
+                <div className="mt-2">
+                  <MiniPowerProfile intervals={workout.intervals} />
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-white dark:bg-gray-800 rounded-full font-medium">
+                    {workout.type}
+                  </span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    TSS {workout.tss}
+                  </span>
+                </div>
+                {workout.intervals && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClick();
+                    }}
+                    className="edit-button text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                    title="Edit session"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </div>
       ) : (

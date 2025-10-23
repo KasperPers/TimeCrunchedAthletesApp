@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { DayCard } from './DayCard';
 import { SessionModal } from './SessionModal';
+import { WorkoutDetailModal } from './WorkoutDetailModal';
 import { WorkoutVisualization } from './WorkoutVisualization';
 import { WorkoutInterval } from '@/lib/types';
 
@@ -33,6 +34,7 @@ const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommendations = [], loading = false }: WeeklyCalendarProps) {
   const [sessions, setSessions] = useState<DaySession[]>([]);
   const [selectedDay, setSelectedDay] = useState<DaySession | null>(null);
+  const [workoutDetailDay, setWorkoutDetailDay] = useState<DaySession | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Update sessions with recommendations when they arrive
@@ -99,6 +101,10 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
 
   const handleDayClick = (day: DaySession) => {
     setSelectedDay(day);
+  };
+
+  const handleWorkoutClick = (day: DaySession) => {
+    setWorkoutDetailDay(day);
   };
 
   const handleSaveSession = (duration: number) => {
@@ -208,6 +214,7 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
             workout={day.workout}
             isToday={isToday(day.date)}
             onClick={() => handleDayClick(day)}
+            onWorkoutClick={() => handleWorkoutClick(day)}
           />
         ))}
       </div>
@@ -260,6 +267,24 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
           onSave={handleSaveSession}
           onRemove={handleRemoveSession}
           onClose={() => setSelectedDay(null)}
+        />
+      )}
+
+      {/* Workout Detail Modal */}
+      {workoutDetailDay && workoutDetailDay.workout && (
+        <WorkoutDetailModal
+          workout={{
+            name: workoutDetailDay.workout.name,
+            type: workoutDetailDay.workout.type,
+            duration: workoutDetailDay.duration || 60,
+            tss: workoutDetailDay.workout.tss,
+            description: `${workoutDetailDay.duration || 60} minute ${workoutDetailDay.workout.type} workout`,
+            intervals: workoutDetailDay.workout.intervals,
+            buildInstructions: workoutDetailDay.workout.buildInstructions,
+          }}
+          dayName={DAYS[workoutDetailDay.dayOfWeek - 1]}
+          date={workoutDetailDay.date}
+          onClose={() => setWorkoutDetailDay(null)}
         />
       )}
     </div>
