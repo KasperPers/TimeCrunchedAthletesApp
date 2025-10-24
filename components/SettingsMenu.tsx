@@ -9,6 +9,8 @@ interface SettingsMenuProps {
   isRefreshing: boolean;
   layoutOrder: string[];
   onLayoutOrderChange: (order: string[]) => void;
+  hiddenSections: string[];
+  onHiddenSectionsChange: (hidden: string[]) => void;
 }
 
 export function SettingsMenu({
@@ -18,6 +20,8 @@ export function SettingsMenu({
   isRefreshing,
   layoutOrder,
   onLayoutOrderChange,
+  hiddenSections,
+  onHiddenSectionsChange,
 }: SettingsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showLayoutSettings, setShowLayoutSettings] = useState(false);
@@ -29,7 +33,6 @@ export function SettingsMenu({
     { id: 'progress-tracking', label: 'Progress Tracking' },
     { id: 'personal-records', label: 'Personal Records' },
     { id: 'calendar-view', label: 'Calendar View' },
-    { id: 'recommendations', label: 'Workout Recommendations' },
   ];
 
   const moveUp = (index: number) => {
@@ -55,6 +58,14 @@ export function SettingsMenu({
 
   const getSectionLabel = (id: string) => {
     return availableSections.find(s => s.id === id)?.label || id;
+  };
+
+  const toggleSectionVisibility = (sectionId: string) => {
+    if (hiddenSections.includes(sectionId)) {
+      onHiddenSectionsChange(hiddenSections.filter(id => id !== sectionId));
+    } else {
+      onHiddenSectionsChange([...hiddenSections, sectionId]);
+    }
   };
 
   return (
@@ -219,61 +230,75 @@ export function SettingsMenu({
               {/* Body */}
               <div className="p-6 max-h-96 overflow-y-auto">
                 <div className="space-y-2">
-                  {layoutOrder.map((sectionId, index) => (
-                    <div
-                      key={sectionId}
-                      className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3"
-                    >
-                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400 w-6">
-                        {index + 1}
-                      </span>
-                      <span className="flex-1 text-sm font-medium">
-                        {getSectionLabel(sectionId)}
-                      </span>
-                      <div className="flex gap-1">
+                  {layoutOrder.map((sectionId, index) => {
+                    const isHidden = hiddenSections.includes(sectionId);
+                    return (
+                      <div
+                        key={sectionId}
+                        className={`flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 ${isHidden ? 'opacity-50' : ''}`}
+                      >
                         <button
-                          onClick={() => moveUp(index)}
-                          disabled={index === 0}
-                          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                          title="Move up"
+                          onClick={() => toggleSectionVisibility(sectionId)}
+                          className="flex-shrink-0 w-5 h-5 border-2 rounded flex items-center justify-center transition-colors hover:border-orange-500"
+                          title={isHidden ? 'Show section' : 'Hide section'}
                         >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 15l7-7 7 7"
-                            />
-                          </svg>
+                          {!isHidden && (
+                            <svg className="w-3 h-3 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
                         </button>
-                        <button
-                          onClick={() => moveDown(index)}
-                          disabled={index === layoutOrder.length - 1}
-                          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                          title="Move down"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                        <span className="text-sm font-medium text-gray-500 dark:text-gray-400 w-6">
+                          {index + 1}
+                        </span>
+                        <span className="flex-1 text-sm font-medium">
+                          {getSectionLabel(sectionId)}
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => moveUp(index)}
+                            disabled={index === 0}
+                            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            title="Move up"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </button>
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 15l7-7 7 7"
+                              />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => moveDown(index)}
+                            disabled={index === layoutOrder.length - 1}
+                            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            title="Move down"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

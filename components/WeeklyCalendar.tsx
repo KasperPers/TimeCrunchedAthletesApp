@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { DayCard } from './DayCard';
 import { SessionModal } from './SessionModal';
+import { WorkoutDetailsModal } from './WorkoutDetailsModal';
 import { WorkoutInterval } from '@/lib/types';
 
 interface DaySession {
@@ -17,6 +18,7 @@ interface DaySession {
     intervals?: WorkoutInterval[];
     buildInstructions?: string;
   };
+  reason?: string;
 }
 
 interface WeeklyCalendarProps {
@@ -36,6 +38,7 @@ const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommendations = [], loading = false, savedPlan = null }: WeeklyCalendarProps) {
   const [sessions, setSessions] = useState<DaySession[]>([]);
   const [selectedDay, setSelectedDay] = useState<DaySession | null>(null);
+  const [viewingWorkout, setViewingWorkout] = useState<DaySession | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Update sessions with recommendations when they arrive
@@ -70,6 +73,7 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
                 intervals: rec.workout.intervals,
                 buildInstructions: rec.workout.buildInstructions,
               },
+              reason: rec.reason,
             };
           }
 
@@ -117,7 +121,12 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
   }, [savedPlan]);
 
   const handleDayClick = (day: DaySession) => {
-    setSelectedDay(day);
+    // If day has a workout, show workout details; otherwise show session editor
+    if (day.hasWorkout && day.workout) {
+      setViewingWorkout(day);
+    } else {
+      setSelectedDay(day);
+    }
   };
 
   const handleSaveSession = (duration: number) => {
@@ -240,6 +249,18 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
           onSave={handleSaveSession}
           onRemove={handleRemoveSession}
           onClose={() => setSelectedDay(null)}
+        />
+      )}
+
+      {/* Workout Details Modal */}
+      {viewingWorkout && viewingWorkout.workout && (
+        <WorkoutDetailsModal
+          workout={viewingWorkout.workout}
+          duration={viewingWorkout.duration || 0}
+          date={viewingWorkout.date}
+          dayName={DAYS[viewingWorkout.dayOfWeek - 1]}
+          reason={viewingWorkout.reason}
+          onClose={() => setViewingWorkout(null)}
         />
       )}
     </div>
