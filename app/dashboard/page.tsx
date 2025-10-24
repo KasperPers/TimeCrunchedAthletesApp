@@ -17,7 +17,9 @@ import { TrainingStatusDashboard } from '@/components/FtpInsights/TrainingStatus
 import { WeeklyOverview } from '@/components/FtpInsights/WeeklyOverview';
 import { PerformanceSummary } from '@/components/FtpInsights/PerformanceSummary';
 import { ProgressionCharts } from '@/components/FtpInsights/ProgressionCharts';
-import { FTPEstimate, TrainingLoadMetrics, ComplianceMetrics, ReadinessStatus } from '@/lib/services/ftp';
+import { LongTermProjectionPanel } from '@/components/FtpInsights/LongTermProjectionPanel';
+import { ProjectionCharts } from '@/components/FtpInsights/ProjectionCharts';
+import { FTPEstimate, TrainingLoadMetrics, ComplianceMetrics, ReadinessStatus, ProjectionMetrics, TrendMetrics } from '@/lib/services/ftp';
 
 
 interface WorkoutRecommendation {
@@ -77,11 +79,15 @@ export default function Dashboard() {
     compliance: ComplianceMetrics;
     readiness: ReadinessStatus;
     adaptivePlan?: any;
+    projections?: ProjectionMetrics;
+    trends?: TrendMetrics;
+    projectionSummary?: string;
   } | null>(null);
 
   // Layout customization state
   const defaultLayoutOrder = [
     'performance-summary',
+    'long-term-projection',
     'ftp-estimation',
     'training-status',
     'weekly-overview',
@@ -89,7 +95,7 @@ export default function Dashboard() {
     'recent-activities',
     'training-metrics',
     'progress-tracking',
-    'progression-charts',
+    'projection-charts',
     'personal-records',
     'calendar-view',
   ];
@@ -493,10 +499,25 @@ export default function Dashboard() {
                 </div>
               ) : null;
 
-            case 'progression-charts':
-              return activities.length > 0 ? (
+            case 'long-term-projection':
+              return ftpMetrics && ftpMetrics.projections ? (
                 <div key={sectionId} className="mb-6">
-                  <ProgressionCharts activities={activities} />
+                  <LongTermProjectionPanel
+                    projections={ftpMetrics.projections}
+                    currentFTP={ftpMetrics.ftpEstimate.ftp}
+                    currentCTL={ftpMetrics.trainingLoad.ctl}
+                  />
+                </div>
+              ) : null;
+
+            case 'projection-charts':
+              return activities.length > 0 && ftpMetrics ? (
+                <div key={sectionId} className="mb-6">
+                  <ProjectionCharts
+                    activities={activities}
+                    currentCTL={ftpMetrics.trainingLoad.ctl}
+                    projections={ftpMetrics.projections}
+                  />
                 </div>
               ) : null;
 

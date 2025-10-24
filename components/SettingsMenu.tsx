@@ -28,6 +28,7 @@ export function SettingsMenu({
 
   const availableSections = [
     { id: 'performance-summary', label: 'Performance Summary' },
+    { id: 'long-term-projection', label: 'Long-Term Projection' },
     { id: 'ftp-estimation', label: 'FTP Estimation' },
     { id: 'training-status', label: 'Training Status' },
     { id: 'weekly-overview', label: 'Weekly Overview' },
@@ -35,7 +36,7 @@ export function SettingsMenu({
     { id: 'recent-activities', label: 'Recent Activities' },
     { id: 'training-metrics', label: 'Training Metrics' },
     { id: 'progress-tracking', label: 'Progress Tracking' },
-    { id: 'progression-charts', label: 'Progression Charts' },
+    { id: 'projection-charts', label: 'Projection Charts' },
     { id: 'personal-records', label: 'Personal Records' },
     { id: 'calendar-view', label: 'Calendar View' },
   ];

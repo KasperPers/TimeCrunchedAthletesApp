@@ -30,6 +30,27 @@ export interface ReadinessStatus {
   recommendedLoad: number; // multiplier for next week (0.85 - 1.15)
 }
 
+export interface ProjectionMetrics {
+  ftpIn4Weeks: number;
+  ftpIn6Weeks: number;
+  ctlIn4Weeks: number;
+  ctlIn6Weeks: number;
+  confidence: number; // 0-100
+  confidenceLabel: 'low' | 'medium' | 'high';
+  assumptions: string[];
+  projectedMonthlyFtpChangePct: number;
+  volatility: number;
+}
+
+export interface TrendMetrics {
+  ftp30dChangePct: number;
+  hre30dChangePct: number;
+  ctlRampPerWeek: number;
+  volatilityFactor: number;
+  weeklyTSSMean: number;
+  weeklyTSSStdDev: number;
+}
+
 export class FTPService {
   /**
    * Estimate FTP from last 90 days of Strava activities
@@ -406,5 +427,355 @@ export class FTPService {
     parts.push(`\n${readiness.message}`);
 
     return parts.join('\n');
+  }
+
+  /**
+   * Constants for projection calculations
+   */
+  private static readonly SAFE_RAMP_MIN = 1.0; // CTL/week
+  private static readonly SAFE_RAMP_MAX = 6.0; // CTL/week
+  private static readonly FTP_MONTHLY_CHANGE_MIN = -3; // %
+  private static readonly FTP_MONTHLY_CHANGE_MAX = 5; // %
+  private static readonly HRE_BOOST_MIN = -2; // %
+  private static readonly HRE_BOOST_MAX = 3; // %
+  private static readonly LOAD_BOOST_MIN = -1.5; // %
+  private static readonly LOAD_BOOST_MAX = 1.5; // %
+  private static readonly PROJECTED_MONTHLY_MIN = -3; // %
+  private static readonly PROJECTED_MONTHLY_MAX = 6; // %
+  private static readonly FTP_MAX_CHANGE_6W = 0.10; // ±10% max over 6 weeks
+
+  /**
+   * Helper: clamp a value between min and max
+   */
+  private static clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  /**
+   * Helper: calculate percentage change
+   */
+  private static pctChange(current: number, previous: number): number {
+    if (previous === 0) return 0;
+    return ((current - previous) / previous) * 100;
+  }
+
+  /**
+   * Helper: calculate standard deviation
+   */
+  private static stdDev(values: number[]): number {
+    if (values.length === 0) return 0;
+    const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+    const squaredDiffs = values.map((v) => Math.pow(v - mean, 2));
+    const variance = squaredDiffs.reduce((sum, v) => sum + v, 0) / values.length;
+    return Math.sqrt(variance);
+  }
+
+  /**
+   * Calculate trend metrics for projections
+   */
+  static calculateTrendMetrics(
+    activities: StravaActivity[],
+    currentFTP: number,
+    currentCTL: number
+  ): TrendMetrics {
+    // FTP 30-day change
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const recent30d = activities.filter((a) => new Date(a.startDate) >= thirtyDaysAgo);
+    const previous30d = activities.filter(
+      (a) => new Date(a.startDate) >= sixtyDaysAgo && new Date(a.startDate) < thirtyDaysAgo
+    );
+
+    const ftp30dAgo = previous30d.length > 0 ? this.estimateFTP(previous30d).ftp : currentFTP;
+    const ftp30dChangePct = this.pctChange(currentFTP, ftp30dAgo);
+
+    // HRE (Heart Rate Efficiency) 30-day change - simplified as HR/power ratio
+    const avgHR30d =
+      recent30d.reduce((sum, a) => sum + (a.averageHeartrate || 0), 0) / (recent30d.length || 1);
+    const avgPower30d =
+      recent30d.reduce((sum, a) => sum + (a.averageWatts || 0), 0) / (recent30d.length || 1);
+    const hre30d = avgPower30d > 0 ? avgHR30d / avgPower30d : 0;
+
+    const avgHR60d =
+      previous30d.reduce((sum, a) => sum + (a.averageHeartrate || 0), 0) /
+      (previous30d.length || 1);
+    const avgPower60d =
+      previous30d.reduce((sum, a) => sum + (a.averageWatts || 0), 0) / (previous30d.length || 1);
+    const hre60d = avgPower60d > 0 ? avgHR60d / avgPower60d : 0;
+
+    // Lower HRE is better (same power at lower HR), so invert for change pct
+    const hre30dChangePct = hre60d > 0 ? -this.pctChange(hre30d, hre60d) : 0;
+
+    // CTL ramp rate
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    const ctl14dAgo = this.rollingAverageTSS(
+      activities
+        .filter((a) => new Date(a.startDate) <= fourteenDaysAgo)
+        .map((a) => ({
+          date: new Date(a.startDate),
+          tss: this.calculateTSS(a, currentFTP),
+        })),
+      42
+    );
+    const ctlRampPerWeek = (currentCTL - ctl14dAgo) / 2;
+
+    // Weekly TSS volatility (last 8 weeks)
+    const eightWeeksAgo = new Date();
+    eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
+    const last8Weeks = activities.filter((a) => new Date(a.startDate) >= eightWeeksAgo);
+
+    // Group by week
+    const weeklyTSS: number[] = [];
+    for (let i = 0; i < 8; i++) {
+      const weekStart = new Date(eightWeeksAgo);
+      weekStart.setDate(weekStart.getDate() + i * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+
+      const weekActivities = last8Weeks.filter((a) => {
+        const date = new Date(a.startDate);
+        return date >= weekStart && date < weekEnd;
+      });
+
+      const weekTSS = weekActivities.reduce((sum, a) => sum + this.calculateTSS(a, currentFTP), 0);
+      weeklyTSS.push(weekTSS);
+    }
+
+    const weeklyTSSMean = weeklyTSS.reduce((sum, v) => sum + v, 0) / (weeklyTSS.length || 1);
+    const weeklyTSSStdDev = this.stdDev(weeklyTSS);
+    const volatilityFactor = weeklyTSSMean > 0 ? weeklyTSSStdDev / weeklyTSSMean : 0;
+
+    return {
+      ftp30dChangePct,
+      hre30dChangePct,
+      ctlRampPerWeek,
+      volatilityFactor,
+      weeklyTSSMean,
+      weeklyTSSStdDev,
+    };
+  }
+
+  /**
+   * Project CTL for future weeks
+   */
+  static projectCTL(currentCTL: number, rampRate: number, weeks: number): number {
+    const clampedRamp = this.clamp(rampRate, this.SAFE_RAMP_MIN, this.SAFE_RAMP_MAX);
+    return Math.round(currentCTL + clampedRamp * weeks);
+  }
+
+  /**
+   * Project FTP for future weeks
+   */
+  static projectFTP(
+    currentFTP: number,
+    trends: TrendMetrics,
+    zoneMix: { recovery: number; progression: number },
+    tsb: number,
+    weeks: number
+  ): { ftpProjected: number; monthlyChangePct: number } {
+    const { ftp30dChangePct, hre30dChangePct, ctlRampPerWeek } = trends;
+
+    // Baseline monthly FTP delta from trend
+    const monthlyFtpDeltaPct = this.clamp(
+      ftp30dChangePct,
+      this.FTP_MONTHLY_CHANGE_MIN,
+      this.FTP_MONTHLY_CHANGE_MAX
+    );
+
+    // HRE influence (efficiency boost)
+    const hreBoostPct = this.clamp(
+      hre30dChangePct * 0.5,
+      this.HRE_BOOST_MIN,
+      this.HRE_BOOST_MAX
+    );
+
+    // Load influence (CTL ramp)
+    const loadBoostPct = this.clamp(
+      (ctlRampPerWeek - 3) * 0.25,
+      this.LOAD_BOOST_MIN,
+      this.LOAD_BOOST_MAX
+    );
+
+    // Zone-aware moderation
+    let zoneMod = 0;
+    if (zoneMix.recovery >= 0.7) {
+      zoneMod = -0.25; // Recovery-heavy reduces gains
+    } else if (zoneMix.progression >= 0.5) {
+      zoneMod = 0.1; // Progression-heavy increases gains
+    }
+
+    // TSB penalty if fatigued
+    let tsbPenalty = 0;
+    if (tsb < -15) {
+      tsbPenalty = -0.15; // 15% reduction if severely fatigued
+    } else if (tsb < -10) {
+      tsbPenalty = -0.10; // 10% reduction if fatigued
+    }
+
+    let projectedMonthlyPct =
+      monthlyFtpDeltaPct + hreBoostPct + loadBoostPct + zoneMod * monthlyFtpDeltaPct;
+    projectedMonthlyPct = this.clamp(
+      projectedMonthlyPct,
+      this.PROJECTED_MONTHLY_MIN,
+      this.PROJECTED_MONTHLY_MAX
+    );
+
+    // Apply TSB penalty
+    projectedMonthlyPct *= 1 + tsbPenalty;
+
+    // Scale for weeks (4 weeks ~ 1 month, 6 weeks ~ 1.5 months)
+    const monthsFactor = weeks / 4;
+    const totalChangePct = projectedMonthlyPct * monthsFactor;
+
+    // Cap total change to ±10% over 6 weeks
+    const cappedChangePct = this.clamp(
+      totalChangePct,
+      -this.FTP_MAX_CHANGE_6W * 100,
+      this.FTP_MAX_CHANGE_6W * 100
+    );
+
+    const ftpProjected = Math.round(currentFTP * (1 + cappedChangePct / 100));
+
+    return { ftpProjected, monthlyChangePct: projectedMonthlyPct };
+  }
+
+  /**
+   * Compute projection confidence (0-100)
+   */
+  static computeProjectionConfidence(
+    rideCount: number,
+    daysSinceLastRide: number,
+    volatility: number
+  ): { confidence: number; label: 'low' | 'medium' | 'high' } {
+    const volumeScore = this.clamp((rideCount / 60) * 100, 20, 100);
+    const recencyScore = this.clamp(100 - daysSinceLastRide * 2, 20, 100);
+    const volatilityScore = this.clamp(100 - volatility * 100, 20, 100);
+
+    const confidence = Math.round(
+      0.4 * volumeScore + 0.3 * recencyScore + 0.3 * volatilityScore
+    );
+
+    let label: 'low' | 'medium' | 'high' = 'medium';
+    if (confidence < 60) label = 'low';
+    else if (confidence > 80) label = 'high';
+
+    return { confidence, label };
+  }
+
+  /**
+   * Generate full projection metrics
+   */
+  static generateProjections(
+    currentFTP: number,
+    currentCTL: number,
+    currentTSB: number,
+    trends: TrendMetrics,
+    zoneMix: { recovery: number; progression: number },
+    rideCount: number,
+    daysSinceLastRide: number
+  ): ProjectionMetrics {
+    // Project CTL
+    const ctlIn4Weeks = this.projectCTL(currentCTL, trends.ctlRampPerWeek, 4);
+    const ctlIn6Weeks = this.projectCTL(currentCTL, trends.ctlRampPerWeek, 6);
+
+    // Project FTP
+    const { ftpProjected: ftpIn4Weeks, monthlyChangePct: monthlyPct4w } = this.projectFTP(
+      currentFTP,
+      trends,
+      zoneMix,
+      currentTSB,
+      4
+    );
+    const { ftpProjected: ftpIn6Weeks } = this.projectFTP(
+      currentFTP,
+      trends,
+      zoneMix,
+      currentTSB,
+      6
+    );
+
+    // Confidence
+    const { confidence, label: confidenceLabel } = this.computeProjectionConfidence(
+      rideCount,
+      daysSinceLastRide,
+      trends.volatilityFactor
+    );
+
+    // Build assumptions
+    const assumptions: string[] = [];
+    assumptions.push(
+      `Current zone mix: ${Math.round(zoneMix.recovery * 100)}% recovery, ${Math.round(zoneMix.progression * 100)}% progression`
+    );
+    assumptions.push(`CTL ramp rate: +${trends.ctlRampPerWeek.toFixed(1)}/week`);
+    assumptions.push(`No illness or injury interruptions`);
+    if (trends.volatilityFactor > 0.3) {
+      assumptions.push(`⚠️ High training volatility detected`);
+    }
+    if (rideCount < 20) {
+      assumptions.push(`⚠️ Limited data - projections less reliable`);
+    }
+    if (currentTSB < -15) {
+      assumptions.push(`⚠️ Current fatigue limiting projected gains`);
+    }
+
+    return {
+      ftpIn4Weeks,
+      ftpIn6Weeks,
+      ctlIn4Weeks,
+      ctlIn6Weeks,
+      confidence,
+      confidenceLabel,
+      assumptions,
+      projectedMonthlyFtpChangePct: monthlyPct4w,
+      volatility: trends.volatilityFactor,
+    };
+  }
+
+  /**
+   * Generate projection summary message
+   */
+  static generateProjectionSummary(
+    projections: ProjectionMetrics,
+    currentFTP: number,
+    currentCTL: number,
+    trends: TrendMetrics
+  ): string {
+    const { ftpIn6Weeks, confidence, volatility, projectedMonthlyFtpChangePct } = projections;
+    const ftpGain = ftpIn6Weeks - currentFTP;
+    const { hre30dChangePct, ctlRampPerWeek } = trends;
+
+    const messages: string[] = [];
+
+    // Header with confidence
+    if (volatility > 0.35 || confidence < 60) {
+      messages.push('⚠️ High Volatility / Low Confidence');
+      messages.push(
+        `Training variability is high; projection confidence ${confidence}%. Normalize weekly TSS to improve predictability.`
+      );
+    } else if (ftpGain > 5) {
+      messages.push('🔥 Projected Build');
+      messages.push(
+        `At +${ctlRampPerWeek.toFixed(1)} CTL/wk and ${hre30dChangePct > 0 ? 'improving' : 'stable'} HR efficiency (${hre30dChangePct >= 0 ? '+' : ''}${hre30dChangePct.toFixed(1)}%), FTP is projected +${ftpGain} W in 6 weeks (confidence ${confidence}%).`
+      );
+      if (projectedMonthlyFtpChangePct > 2) {
+        messages.push('Keep the Z2/Z3 base with one Z4 focus day.');
+      }
+    } else if (Math.abs(ftpGain) <= 2) {
+      messages.push('💪 Balanced');
+      messages.push(
+        `Stable load and efficiency; FTP expected to hold ±${Math.abs(ftpGain)} W in 6 weeks (confidence ${confidence}%). Progress comes from consistency.`
+      );
+    } else {
+      messages.push('📊 Maintenance Phase');
+      messages.push(
+        `Current training pattern projects ${ftpGain >= 0 ? '+' : ''}${ftpGain} W in 6 weeks. Consider adding stimulus if building is the goal.`
+      );
+    }
+
+    return messages.join('\n\n');
   }
 }

@@ -139,6 +139,56 @@ export async function GET() {
     // Generate summary
     const summary = FTPService.generateSummary(ftpEstimate, trainingLoad, readiness);
 
+    // Calculate trend metrics for projections
+    const trends = FTPService.calculateTrendMetrics(
+      stravaActivities,
+      ftpEstimate.ftp,
+      trainingLoad.ctl
+    );
+
+    // Determine zone mix from adaptive plan
+    let zoneMix = { recovery: 0.3, progression: 0.3 }; // default
+    if (adaptivePlan && adaptivePlan.sessions) {
+      const recoveryCount = adaptivePlan.sessions.filter((s: any) =>
+        ['Z1', 'Z2', 'Recovery', 'Endurance'].some(z => s.zone?.includes(z))
+      ).length;
+      const progressionCount = adaptivePlan.sessions.filter((s: any) =>
+        ['Z3', 'Z4', 'Z5', 'Tempo', 'Threshold', 'VO2Max'].some(z => s.zone?.includes(z))
+      ).length;
+      const total = adaptivePlan.sessions.length || 1;
+      zoneMix = {
+        recovery: recoveryCount / total,
+        progression: progressionCount / total,
+      };
+    }
+
+    // Calculate days since last ride
+    const lastRideDate = stravaActivities.length > 0
+      ? new Date(stravaActivities[0].startDate)
+      : new Date();
+    const daysSinceLastRide = Math.floor(
+      (Date.now() - lastRideDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    // Generate projections
+    const projections = FTPService.generateProjections(
+      ftpEstimate.ftp,
+      trainingLoad.ctl,
+      trainingLoad.tsb,
+      trends,
+      zoneMix,
+      ftpEstimate.rideCount,
+      daysSinceLastRide
+    );
+
+    // Generate projection summary
+    const projectionSummary = FTPService.generateProjectionSummary(
+      projections,
+      ftpEstimate.ftp,
+      trainingLoad.ctl,
+      trends
+    );
+
     return NextResponse.json({
       ftpEstimate,
       trainingLoad,
@@ -146,6 +196,9 @@ export async function GET() {
       readiness,
       adaptivePlan,
       summary,
+      trends,
+      projections,
+      projectionSummary,
       activities: stravaActivities,
     });
   } catch (error) {
