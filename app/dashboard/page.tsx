@@ -12,6 +12,14 @@ import { PersonalRecords } from '@/components/PersonalRecords';
 import { CalendarView } from '@/components/CalendarView';
 import { WorkoutVisualization } from '@/components/WorkoutVisualization';
 import { SettingsMenu } from '@/components/SettingsMenu';
+import { FtpEstimationCard } from '@/components/FtpInsights/FtpEstimationCard';
+import { TrainingStatusDashboard } from '@/components/FtpInsights/TrainingStatusDashboard';
+import { WeeklyOverview } from '@/components/FtpInsights/WeeklyOverview';
+import { PerformanceSummary } from '@/components/FtpInsights/PerformanceSummary';
+import { ProgressionCharts } from '@/components/FtpInsights/ProgressionCharts';
+import { LongTermProjectionPanel } from '@/components/FtpInsights/LongTermProjectionPanel';
+import { ProjectionCharts } from '@/components/FtpInsights/ProjectionCharts';
+import { FTPEstimate, TrainingLoadMetrics, ComplianceMetrics, ReadinessStatus, ProjectionMetrics, TrendMetrics } from '@/lib/services/ftp';
 
 
 interface WorkoutRecommendation {
@@ -64,12 +72,30 @@ export default function Dashboard() {
   const [weeklyPlans, setWeeklyPlans] = useState<WeeklyPlan[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // FTP metrics state
+  const [ftpMetrics, setFtpMetrics] = useState<{
+    ftpEstimate: FTPEstimate;
+    trainingLoad: TrainingLoadMetrics;
+    compliance: ComplianceMetrics;
+    readiness: ReadinessStatus;
+    adaptivePlan?: any;
+    projections?: ProjectionMetrics;
+    trends?: TrendMetrics;
+    projectionSummary?: string;
+  } | null>(null);
+
   // Layout customization state
   const defaultLayoutOrder = [
+    'performance-summary',
+    'long-term-projection',
+    'ftp-estimation',
+    'training-status',
+    'weekly-overview',
     'training-plan',
     'recent-activities',
     'training-metrics',
     'progress-tracking',
+    'projection-charts',
     'personal-records',
     'calendar-view',
   ];
@@ -122,6 +148,7 @@ export default function Dashboard() {
       syncActivities();
       loadWeeklyPlans();
       loadSavedRecommendations();
+      loadFTPMetrics();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, initialLoad]);
@@ -150,6 +177,18 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error('Error loading recommendations:', err);
+    }
+  };
+
+  const loadFTPMetrics = async () => {
+    try {
+      const response = await fetch('/api/ftp-metrics');
+      if (response.ok) {
+        const data = await response.json();
+        setFtpMetrics(data);
+      }
+    } catch (err) {
+      console.error('Error loading FTP metrics:', err);
     }
   };
 
@@ -211,6 +250,9 @@ export default function Dashboard() {
 
       // Fetch updated activities list
       await fetchActivities();
+
+      // Reload FTP metrics after sync
+      await loadFTPMetrics();
     } catch (err) {
       setError('Failed to sync activities. Please try again.');
       console.error(err);
@@ -419,6 +461,66 @@ export default function Dashboard() {
         {/* Render sections based on layoutOrder, filtering out hidden sections */}
         {layoutOrder.filter(sectionId => !hiddenSections.includes(sectionId)).map((sectionId) => {
           switch (sectionId) {
+            case 'performance-summary':
+              return ftpMetrics ? (
+                <div key={sectionId} className="mb-6">
+                  <PerformanceSummary
+                    ftpEstimate={ftpMetrics.ftpEstimate}
+                    trainingLoad={ftpMetrics.trainingLoad}
+                    readiness={ftpMetrics.readiness}
+                  />
+                </div>
+              ) : null;
+
+            case 'ftp-estimation':
+              return ftpMetrics ? (
+                <div key={sectionId} className="mb-6">
+                  <FtpEstimationCard ftpEstimate={ftpMetrics.ftpEstimate} />
+                </div>
+              ) : null;
+
+            case 'training-status':
+              return ftpMetrics ? (
+                <div key={sectionId} className="mb-6">
+                  <TrainingStatusDashboard
+                    trainingLoad={ftpMetrics.trainingLoad}
+                    readiness={ftpMetrics.readiness}
+                  />
+                </div>
+              ) : null;
+
+            case 'weekly-overview':
+              return ftpMetrics ? (
+                <div key={sectionId} className="mb-6">
+                  <WeeklyOverview
+                    compliance={ftpMetrics.compliance}
+                    adaptivePlan={ftpMetrics.adaptivePlan}
+                  />
+                </div>
+              ) : null;
+
+            case 'long-term-projection':
+              return ftpMetrics && ftpMetrics.projections ? (
+                <div key={sectionId} className="mb-6">
+                  <LongTermProjectionPanel
+                    projections={ftpMetrics.projections}
+                    currentFTP={ftpMetrics.ftpEstimate.ftp}
+                    currentCTL={ftpMetrics.trainingLoad.ctl}
+                  />
+                </div>
+              ) : null;
+
+            case 'projection-charts':
+              return activities.length > 0 && ftpMetrics ? (
+                <div key={sectionId} className="mb-6">
+                  <ProjectionCharts
+                    activities={activities}
+                    currentCTL={ftpMetrics.trainingLoad.ctl}
+                    projections={ftpMetrics.projections}
+                  />
+                </div>
+              ) : null;
+
             case 'training-plan':
               return (
                 <div key={sectionId} className="mb-6">
