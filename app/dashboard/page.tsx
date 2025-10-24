@@ -75,25 +75,24 @@ export default function Dashboard() {
     'recommendations',
   ];
 
-  const [layoutOrder, setLayoutOrder] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('dashboardLayoutOrder');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {
-          return defaultLayoutOrder;
-        }
+  const [layoutOrder, setLayoutOrder] = useState<string[]>(defaultLayoutOrder);
+
+  // Load layout order from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('dashboardLayoutOrder');
+    if (saved) {
+      try {
+        const parsedOrder = JSON.parse(saved);
+        setLayoutOrder(parsedOrder);
+      } catch {
+        // Invalid JSON, keep default
       }
     }
-    return defaultLayoutOrder;
-  });
+  }, []);
 
   // Save layout order to localStorage whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('dashboardLayoutOrder', JSON.stringify(layoutOrder));
-    }
+    localStorage.setItem('dashboardLayoutOrder', JSON.stringify(layoutOrder));
   }, [layoutOrder]);
 
   useEffect(() => {
