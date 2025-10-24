@@ -72,28 +72,42 @@ export default function Dashboard() {
     'progress-tracking',
     'personal-records',
     'calendar-view',
-    'recommendations',
   ];
 
   const [layoutOrder, setLayoutOrder] = useState<string[]>(defaultLayoutOrder);
+  const [hiddenSections, setHiddenSections] = useState<string[]>([]);
 
-  // Load layout order from localStorage on mount
+  // Load layout order and hidden sections from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('dashboardLayoutOrder');
-    if (saved) {
+    const savedOrder = localStorage.getItem('dashboardLayoutOrder');
+    if (savedOrder) {
       try {
-        const parsedOrder = JSON.parse(saved);
+        const parsedOrder = JSON.parse(savedOrder);
         setLayoutOrder(parsedOrder);
+      } catch {
+        // Invalid JSON, keep default
+      }
+    }
+
+    const savedHidden = localStorage.getItem('dashboardHiddenSections');
+    if (savedHidden) {
+      try {
+        const parsedHidden = JSON.parse(savedHidden);
+        setHiddenSections(parsedHidden);
       } catch {
         // Invalid JSON, keep default
       }
     }
   }, []);
 
-  // Save layout order to localStorage whenever it changes
+  // Save layout order and hidden sections to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('dashboardLayoutOrder', JSON.stringify(layoutOrder));
   }, [layoutOrder]);
+
+  useEffect(() => {
+    localStorage.setItem('dashboardHiddenSections', JSON.stringify(hiddenSections));
+  }, [hiddenSections]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -319,6 +333,18 @@ export default function Dashboard() {
     setLayoutOrder(newOrder);
   };
 
+  // Handle hidden sections changes
+  const handleHiddenSectionsChange = (newHidden: string[]) => {
+    setHiddenSections(newHidden);
+  };
+
+  // Filter activities to last 14 days
+  const getRecentActivities = () => {
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    return activities.filter(activity => new Date(activity.startDate) >= fourteenDaysAgo);
+  };
+
   // Get the scheduled date for a specific session number
   const getSessionDate = (sessionNumber: number): Date | null => {
     const plan = getCurrentWeekPlan();
@@ -375,6 +401,8 @@ export default function Dashboard() {
               isRefreshing={syncing}
               layoutOrder={layoutOrder}
               onLayoutOrderChange={handleLayoutOrderChange}
+              hiddenSections={hiddenSections}
+              onHiddenSectionsChange={handleHiddenSectionsChange}
             />
           </div>
         </div>
@@ -388,8 +416,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Render sections based on layoutOrder */}
-        {layoutOrder.map((sectionId) => {
+        {/* Render sections based on layoutOrder, filtering out hidden sections */}
+        {layoutOrder.filter(sectionId => !hiddenSections.includes(sectionId)).map((sectionId) => {
           switch (sectionId) {
             case 'training-plan':
               return (
@@ -407,7 +435,7 @@ export default function Dashboard() {
             case 'recent-activities':
               return (
                 <div key={sectionId} className="mb-6">
-                  <RecentActivities activities={activities} />
+                  <RecentActivities activities={getRecentActivities()} />
                 </div>
               );
 
@@ -495,106 +523,6 @@ export default function Dashboard() {
               return activities.length > 0 ? (
                 <div key={sectionId} className="mb-6">
                   <CalendarView activities={activities} />
-                </div>
-              ) : null;
-
-            case 'recommendations':
-              return recommendations.length > 0 ? (
-                <div key={sectionId} id="recommendations" className="space-y-4 mb-6">
-                  <h2 className="text-2xl font-bold">Your Personalized Workouts</h2>
-                  {recommendations.map((rec) => (
-                    <div
-                      key={rec.sessionNumber}
-                      className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                            Session {rec.sessionNumber}
-                            {(() => {
-                              const sessionDate = getSessionDate(rec.sessionNumber);
-                              if (sessionDate) {
-                                return (
-                                  <span className="ml-2">
-                                    • {sessionDate.toLocaleDateString('en-US', {
-                                      weekday: 'long',
-                                      month: 'short',
-                                      day: 'numeric'
-                                    })}
-                                  </span>
-                                );
-                              }
-                              return null;
-                            })()}
-                          </div>
-                          <h3 className="text-xl font-bold">{rec.workout.name}</h3>
-                        </div>
-                        <div className="text-right">
-                          <div className="inline-block bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 px-3 py-1 rounded-full text-sm font-medium">
-                            {rec.workout.type}
-                          </div>
-                        </div>
-                      </div>
-
-                      <p className="text-gray-600 dark:text-gray-400 mb-4">
-                        {rec.workout.description}
-                      </p>
-
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 text-sm">
-                        <div>
-                          <span className="text-gray-500 dark:text-gray-400">
-                            Duration:
-                          </span>
-                          <span className="ml-2 font-medium">
-                            {rec.workout.duration} min
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500 dark:text-gray-400">
-                            TSS:
-                          </span>
-                          <span className="ml-2 font-medium">{rec.workout.tss}</span>
-                        </div>
-                        <div className="col-span-2 md:col-span-1">
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Find in Zwift app → Training → {rec.workout.type}
-                          </div>
-                        </div>
-                      </div>
-
-                      {rec.workout.intervals && rec.workout.intervals.length > 0 && (
-                        <div className="mb-4">
-                          <WorkoutVisualization
-                            intervals={rec.workout.intervals}
-                            workoutName={rec.workout.name}
-                            workoutType={rec.workout.type}
-                            duration={rec.workout.duration}
-                            tss={rec.workout.tss}
-                          />
-                        </div>
-                      )}
-
-                      {rec.workout.buildInstructions && (
-                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-4">
-                          <div className="text-xs text-blue-600 dark:text-blue-400 uppercase mb-1 font-semibold">
-                            📝 How to build this in Zwift
-                          </div>
-                          <pre className="text-sm text-blue-900 dark:text-blue-200 whitespace-pre-wrap font-mono">
-                            {rec.workout.buildInstructions}
-                          </pre>
-                        </div>
-                      )}
-
-                      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">
-                          Why this workout?
-                        </div>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                          {rec.reason}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               ) : null;
 
