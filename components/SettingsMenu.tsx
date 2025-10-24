@@ -27,10 +27,15 @@ export function SettingsMenu({
   const [showLayoutSettings, setShowLayoutSettings] = useState(false);
 
   const availableSections = [
+    { id: 'performance-summary', label: 'Performance Summary' },
+    { id: 'ftp-estimation', label: 'FTP Estimation' },
+    { id: 'training-status', label: 'Training Status' },
+    { id: 'weekly-overview', label: 'Weekly Overview' },
     { id: 'training-plan', label: 'Plan Your Training' },
     { id: 'recent-activities', label: 'Recent Activities' },
     { id: 'training-metrics', label: 'Training Metrics' },
     { id: 'progress-tracking', label: 'Progress Tracking' },
+    { id: 'progression-charts', label: 'Progression Charts' },
     { id: 'personal-records', label: 'Personal Records' },
     { id: 'calendar-view', label: 'Calendar View' },
   ];
