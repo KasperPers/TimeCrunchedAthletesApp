@@ -1,43 +1,25 @@
 {
-  "name": "timecrunchedathletesapp",
+  "name": "timecrunchedathletes-monorepo",
   "version": "1.0.0",
-  "description": "TimeCrunchedAthletes App is a app, that suggest workout based on the time you have available. Workouts are suggested based on your recent Strava activities and then suggested workout from Zwift workout library.",
-  "main": "index.js",
+  "private": true,
+  "description": "Time Crunched Athletes - Monorepo for Web and Mobile apps",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio"
-  },
-  "repository": {
-    "type": "git",
-    "url": "http://local_proxy@127.0.0.1:37802/git/KasperPers/TimeCrunchedAthletesApp"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@next-auth/prisma-adapter": "^1.0.7",
-    "@prisma/client": "^6.17.1",
-    "axios": "^1.12.2",
-    "cheerio": "^1.1.2",
-    "next": "^15.5.6",
-    "next-auth": "^4.24.11",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "zod": "^4.1.12"
+    "web": "npm run dev --workspace=apps/web",
+    "mobile": "npm run start --workspace=apps/mobile",
+    "shared": "npm run type-check --workspace=packages/shared",
+    "install:all": "npm install && npm install --workspace=apps/web && npm install --workspace=apps/mobile",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules",
+    "type-check": "npm run type-check --workspaces"
   },
   "devDependencies": {
-    "@types/node": "^24.9.1",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.6",
-    "prisma": "^6.17.1",
-    "tailwindcss": "^3.4.1",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }
