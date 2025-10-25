@@ -106,9 +106,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { numSessions, sessionDurations } = body;
 
-    if (!numSessions || !sessionDurations || sessionDurations.length !== numSessions) {
+    if (!numSessions || !sessionDurations) {
       return NextResponse.json(
         { error: 'Invalid input: numSessions and sessionDurations required' },
+        { status: 400 }
+      );
+    }
+
+    // Filter out rest days (0 duration) to get actual workout durations
+    const workoutDurations = sessionDurations.filter((d: number) => d > 0);
+
+    if (workoutDurations.length !== numSessions) {
+      return NextResponse.json(
+        { error: `Invalid input: expected ${numSessions} workout sessions but found ${workoutDurations.length}` },
         { status: 400 }
       );
     }
@@ -160,11 +170,11 @@ export async function POST(request: NextRequest) {
     const analysisService = new TrainingAnalysisService(activities, userFTP);
     const metrics = analysisService.calculateMetrics();
 
-    // Generate recommendations
+    // Generate recommendations (use workoutDurations, not the full 7-day array)
     const recommendationEngine = new RecommendationEngine(
       metrics,
       numSessions,
-      sessionDurations
+      workoutDurations
     );
     const recommendations = await recommendationEngine.generateRecommendations();
 
@@ -197,13 +207,25 @@ export async function POST(request: NextRequest) {
       where: { weeklyPlanId: weeklyPlan.id },
     });
 
-    // Save new recommendations
-    for (const rec of recommendations) {
+    // Map recommendations to actual day indices (0-6 for Mon-Sun)
+    // Find which days have workouts in the sessionDurations array
+    const workoutDayIndices: number[] = [];
+    sessionDurations.forEach((duration: number, index: number) => {
+      if (duration > 0) {
+        workoutDayIndices.push(index);
+      }
+    });
+
+    // Save new recommendations with correct day mapping
+    for (let i = 0; i < recommendations.length; i++) {
+      const rec = recommendations[i];
+      const actualDayIndex = workoutDayIndices[i]; // Map to actual day of week (0-6)
+
       await prisma.recommendation.create({
         data: {
           userId: session.user.id,
           weeklyPlanId: weeklyPlan.id,
-          sessionNumber: rec.sessionNumber,
+          sessionNumber: actualDayIndex + 1, // Store as 1-7 (Mon-Sun)
           workoutName: rec.workout.name,
           workoutUrl: rec.workout.url,
           workoutDuration: rec.workout.duration,

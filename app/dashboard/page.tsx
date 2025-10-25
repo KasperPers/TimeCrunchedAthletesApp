@@ -298,7 +298,8 @@ export default function Dashboard() {
     }
 
     const numSessions = sessionsWithWorkouts.length;
-    const sessionDurations = sessionsWithWorkouts.map((s: any) => s.duration);
+    // Send all 7 days with 0 for rest days to preserve day-of-week mapping
+    const sessionDurations = sessions.map((s: any) => s.duration || 0);
 
     await generateRecommendations(numSessions, sessionDurations);
   };

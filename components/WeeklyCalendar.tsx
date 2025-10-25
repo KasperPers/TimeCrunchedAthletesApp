@@ -46,20 +46,15 @@ export function WeeklyCalendar({ onSavePlan, onGenerateRecommendations, recommen
     if (recommendations.length > 0) {
       console.log('WeeklyCalendar: Received recommendations:', recommendations);
       setSessions(prevSessions => {
-        const sessionsWithWorkouts = prevSessions.filter((s) => s.hasWorkout);
-        console.log('WeeklyCalendar: Sessions with workouts:', sessionsWithWorkouts.length);
-
         return prevSessions.map((session) => {
           if (!session.hasWorkout) return session;
 
-          // Find matching recommendation by index
-          const sessionIndex = sessionsWithWorkouts.findIndex(
-            (s) => s.date.getTime() === session.date.getTime()
-          );
+          // Find matching recommendation by sessionNumber (day of week)
+          // session.dayOfWeek is 1-7 for Mon-Sun
+          const rec = recommendations.find((r: any) => r.sessionNumber === session.dayOfWeek);
 
-          const rec = recommendations[sessionIndex];
           if (rec && rec.workout) {
-            console.log(`WeeklyCalendar: Mapping workout for session ${sessionIndex}:`, {
+            console.log(`WeeklyCalendar: Mapping workout for day ${session.dayOfWeek}:`, {
               name: rec.workout.name,
               hasIntervals: !!rec.workout.intervals,
               intervalsCount: rec.workout.intervals?.length
