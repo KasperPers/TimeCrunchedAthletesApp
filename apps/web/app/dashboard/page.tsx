@@ -3,7 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { TrainingMetrics, WorkoutInterval } from '@/lib/types';
+import { TrainingMetrics, WorkoutInterval } from '@timecrunchedathletes/shared';
 import { RecentActivities } from '@/components/RecentActivities';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { WeeklyTSSChart } from '@/components/WeeklyTSSChart';
@@ -19,7 +19,7 @@ import { PerformanceSummary } from '@/components/FtpInsights/PerformanceSummary'
 import { ProgressionCharts } from '@/components/FtpInsights/ProgressionCharts';
 import { LongTermProjectionPanel } from '@/components/FtpInsights/LongTermProjectionPanel';
 import { ProjectionCharts } from '@/components/FtpInsights/ProjectionCharts';
-import { FTPEstimate, TrainingLoadMetrics, ComplianceMetrics, ReadinessStatus, ProjectionMetrics, TrendMetrics } from '@/lib/services/ftp';
+import { FTPEstimate, TrainingLoadMetrics, ComplianceMetrics, ReadinessStatus, ProjectionMetrics, TrendMetrics } from '@timecrunchedathletes/shared';
 
 
 interface WorkoutRecommendation {

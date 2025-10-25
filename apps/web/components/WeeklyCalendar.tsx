@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { DayCard } from './DayCard';
 import { SessionModal } from './SessionModal';
 import { WorkoutDetailsModal } from './WorkoutDetailsModal';
-import { WorkoutInterval } from '@/lib/types';
+import { WorkoutInterval } from '@timecrunchedathletes/shared';
 
 interface DaySession {
   dayOfWeek: number; // 0-6 (Sun-Sat)

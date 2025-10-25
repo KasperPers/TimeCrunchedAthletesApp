@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { FTPService } from '@/lib/services/ftp';
+import { FTPService } from '@timecrunchedathletes/shared';
 import { getWeekStart } from '@/lib/utils/weeks';
 
 export async function GET() {

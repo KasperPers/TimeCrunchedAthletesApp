@@ -1,6 +1,6 @@
 'use client';
 
-import { TrainingLoadMetrics, ReadinessStatus } from '@/lib/services/ftp';
+import { TrainingLoadMetrics, ReadinessStatus } from '@timecrunchedathletes/shared';
 
 interface TrainingStatusDashboardProps {
   trainingLoad: TrainingLoadMetrics;

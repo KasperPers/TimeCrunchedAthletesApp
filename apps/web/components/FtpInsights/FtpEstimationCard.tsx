@@ -1,6 +1,6 @@
 'use client';
 
-import { FTPEstimate } from '@/lib/services/ftp';
+import { FTPEstimate } from '@timecrunchedathletes/shared';
 
 interface FtpEstimationCardProps {
   ftpEstimate: FTPEstimate;

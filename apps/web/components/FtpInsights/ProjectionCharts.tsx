@@ -1,6 +1,6 @@
 'use client';
 
-import { ProjectionMetrics } from '@/lib/services/ftp';
+import { ProjectionMetrics } from '@timecrunchedathletes/shared';
 
 interface ProjectionChartsProps {
   activities: Array<{

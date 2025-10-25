@@ -1,6 +1,6 @@
 'use client';
 
-import { WorkoutInterval } from '@/lib/types';
+import { WorkoutInterval } from '@timecrunchedathletes/shared';
 import { WorkoutVisualization } from './WorkoutVisualization';
 
 interface WorkoutDetailsModalProps {
