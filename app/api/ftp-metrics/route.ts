@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { FTPService } from '@/lib/services/ftp';
+import { getWeekStart } from '@/lib/utils/weeks';
 
 export async function GET() {
   try {
@@ -69,16 +70,22 @@ export async function GET() {
     const actualTSS = weekActivities.reduce((sum, a) => sum + (a.tss || 0), 0);
     const actualHours = weekActivities.reduce((sum, a) => sum + a.movingTime / 3600, 0);
 
-    // Get user's weekly plan (if exists)
+    // Get user's weekly plan for current week (for compliance calculation)
+    const currentWeekStart = getWeekStart();
     const currentWeekPlan = await prisma.weeklyPlan.findFirst({
       where: {
         userId: session.user.id,
-        weekStartDate: {
-          lte: new Date(),
-        },
+        weekStartDate: currentWeekStart,
       },
-      orderBy: {
-        weekStartDate: 'desc',
+    });
+
+    // Get user's weekly plan for next week (for adaptive plan generation)
+    const nextWeekStart = new Date(currentWeekStart);
+    nextWeekStart.setDate(currentWeekStart.getDate() + 7);
+    const nextWeekPlan = await prisma.weeklyPlan.findFirst({
+      where: {
+        userId: session.user.id,
+        weekStartDate: nextWeekStart,
       },
     });
 
@@ -105,12 +112,24 @@ export async function GET() {
       // Assess readiness
       const readiness = FTPService.assessReadiness(trainingLoad, compliance);
 
-      // Generate adaptive plan for next week
+      // Generate adaptive plan for next week using next week's plan if it exists
+      const planForNextWeek = nextWeekPlan || currentWeekPlan;
+      const nextWeekSessionDurations =
+        typeof planForNextWeek.sessionDurations === 'string'
+          ? JSON.parse(planForNextWeek.sessionDurations)
+          : planForNextWeek.sessionDurations;
+
+      const nextWeekPlannedMinutes = Array.isArray(nextWeekSessionDurations)
+        ? nextWeekSessionDurations.reduce((sum: number, d: number) => sum + d, 0)
+        : 0;
+      const nextWeekPlannedHours = nextWeekPlannedMinutes / 60;
+      const nextWeekPlannedTSS = nextWeekPlannedHours * 70;
+
       adaptivePlan = FTPService.generateAdaptivePlan(
-        currentWeekPlan.numSessions,
-        plannedMinutes,
+        planForNextWeek.numSessions,
+        nextWeekPlannedMinutes,
         readiness,
-        plannedTSS
+        nextWeekPlannedTSS
       );
     } else {
       // Default compliance (no plan)
@@ -126,8 +145,29 @@ export async function GET() {
       // Default readiness
       const readiness = FTPService.assessReadiness(trainingLoad, compliance);
 
-      // Default adaptive plan (4 sessions, 6 hours)
-      adaptivePlan = FTPService.generateAdaptivePlan(4, 360, readiness, 300);
+      // If next week has a plan, use it; otherwise use default
+      if (nextWeekPlan) {
+        const nextWeekSessionDurations =
+          typeof nextWeekPlan.sessionDurations === 'string'
+            ? JSON.parse(nextWeekPlan.sessionDurations)
+            : nextWeekPlan.sessionDurations;
+
+        const nextWeekPlannedMinutes = Array.isArray(nextWeekSessionDurations)
+          ? nextWeekSessionDurations.reduce((sum: number, d: number) => sum + d, 0)
+          : 0;
+        const nextWeekPlannedHours = nextWeekPlannedMinutes / 60;
+        const nextWeekPlannedTSS = nextWeekPlannedHours * 70;
+
+        adaptivePlan = FTPService.generateAdaptivePlan(
+          nextWeekPlan.numSessions,
+          nextWeekPlannedMinutes,
+          readiness,
+          nextWeekPlannedTSS
+        );
+      } else {
+        // Default adaptive plan (4 sessions, 6 hours)
+        adaptivePlan = FTPService.generateAdaptivePlan(4, 360, readiness, 300);
+      }
     }
 
     // Assess readiness
