@@ -1,6 +1,6 @@
 'use client';
 
-import { ComplianceMetrics } from '@/lib/services/ftp';
+import { ComplianceMetrics } from '@timecrunchedathletes/shared';
 
 interface WeeklyOverviewProps {
   compliance: ComplianceMetrics;

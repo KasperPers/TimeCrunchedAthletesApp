@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { StravaService, calculateTSS, determineWorkoutType } from '@/lib/services/strava';
-import { TrainingAnalysisService } from '@/lib/services/analysis';
+import { StravaService, calculateTSS, determineWorkoutType, TrainingAnalysisService } from '@timecrunchedathletes/shared';
 import { getValidStravaToken, refreshStravaToken } from '@/lib/utils/strava-auth';
 
 export async function POST() {

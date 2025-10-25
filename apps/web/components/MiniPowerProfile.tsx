@@ -1,6 +1,6 @@
 'use client';
 
-import { WorkoutInterval } from '@/lib/types';
+import { WorkoutInterval } from '@timecrunchedathletes/shared';
 
 interface MiniPowerProfileProps {
   intervals: WorkoutInterval[];

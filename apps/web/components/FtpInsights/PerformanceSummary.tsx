@@ -1,6 +1,6 @@
 'use client';
 
-import { FTPEstimate, TrainingLoadMetrics, ReadinessStatus } from '@/lib/services/ftp';
+import { FTPEstimate, TrainingLoadMetrics, ReadinessStatus } from '@timecrunchedathletes/shared';
 
 interface PerformanceSummaryProps {
   ftpEstimate: FTPEstimate;
